@@ -3,6 +3,7 @@
 // import HelloWorld from './components/HelloWorld.vue'
 // import TheWelcome from './components/TheWelcome.vue'
 import Canva from './components/Canva.vue';
+import Settings from './components/Settings.vue';
 </script>
 
 <template>
@@ -16,7 +17,7 @@ import Canva from './components/Canva.vue';
     <div class="control-area">
       <!-- 上方配置区域 (70%) -->
       <div class="config-section">
-        <p>配置区域</p>
+        <Settings/>
       </div>
       
       <!-- 下方日志区域 (30%) -->
