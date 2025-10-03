@@ -4,6 +4,8 @@
       <v-stage ref="stage" :config="stageConfig" @wheel="handleWheel">
         <v-layer ref="layer">
           <v-image :config="imageConfig" v-if="imageConfig.image" @dragstart="handleDragStart" @dragend="handleDragEnd"/>
+          <!-- 添加用于显示分割结果的图层 -->
+          <v-image :config="segmentationOverlayConfig" v-if="segmentationOverlayConfig.image"/>
         </v-layer>
       </v-stage>
     </div>
@@ -18,6 +20,7 @@ import { useSegStore } from '@/stores/SegStore';
 import axios from 'axios';
 import { NButton } from 'naive-ui';
 import { onMounted, onUnmounted, ref, watch } from 'vue';
+import { createRGBFromPalette, ImgToBase64 } from './Canva';
 
 const stageConfig = ref({
     width: 0,
@@ -38,7 +41,43 @@ const imageConfig = ref({
   draggable: true
 });
 
+// 分割图层配置
+const segmentationOverlayConfig = ref({
+  image: null,
+  x: 0,
+  y: 0,
+  width: 0,
+  height: 0,
+  draggable: true,
+  opacity: 0.9
+});
+
 const segStore = useSegStore();
+
+// 根据palette生成分割图像
+const generateSegmentationImage = async (palette) => {
+  const segImage = createRGBFromPalette(palette);
+  const base64 = await ImgToBase64(segImage);
+  const segImg = new Image();
+  // 修复：直接使用base64结果，因为它已经包含了data:image/png;base64,前缀
+  segImg.src = base64;
+  segImg.onload = () => {
+      // 获取stage容器的实际尺寸
+      const stageWidth = stageConfig.value.width;
+      const stageHeight = stageConfig.value.height;
+      
+      // 修复：使用正确的图像变量segImg而不是img
+      const scale = Math.min(stageWidth / segImg.width, stageHeight / segImg.height);
+      const scaledWidth = segImg.width * scale;
+      const scaledHeight = segImg.height * scale;
+      
+      segmentationOverlayConfig.value.image = segImg;
+      segmentationOverlayConfig.value.x = (stageWidth - scaledWidth) / 2;
+      segmentationOverlayConfig.value.y = (stageHeight - scaledHeight) / 2;
+      segmentationOverlayConfig.value.width = scaledWidth;
+      segmentationOverlayConfig.value.height = scaledHeight;
+    };
+};
 
 // 监视palette变化
 watch(
@@ -46,7 +85,9 @@ watch(
   (newPalette) => {
     // 检查palette是否为空
     if (newPalette && newPalette.length > 0) {
-      console.log('Palette updated:', newPalette);
+      // 生成分割图像并显示
+      console.log('start visualizing mask');
+      generateSegmentationImage(newPalette);
     }
   },
   { deep: true }
