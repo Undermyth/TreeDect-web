@@ -10,6 +10,7 @@
 </template>
 
 <script setup lang="ts">
+import { useSegStore } from '@/stores/SegStore';
 import axios from 'axios';
 import { NButton, NInputNumber, NSpace } from 'naive-ui';
 import pako from 'pako';
@@ -19,23 +20,7 @@ const horizontalSampling = ref<number>(50)
 const verticalSampling = ref<number>(50)
 const overlapThreshold = ref<number>(0.2)
 const loading = ref<boolean>(false)
-
-// 定义解压mask数据的函数
-function decompressMask(encodedMask: string, shape: [number, number]): boolean[] {
-  // base64解码
-  const compressedBytes = Uint8Array.from(atob(encodedMask), c => c.charCodeAt(0));
-  // gzip解压
-  const decompressedBytes = pako.inflate(compressedBytes);
-  // 解包bits
-  const unpacked = new Uint8Array(decompressedBytes.length * 8);
-  for (let i = 0; i < decompressedBytes.length; i++) {
-    for (let j = 0; j < 8; j++) {
-      unpacked[i * 8 + j] = (decompressedBytes[i] >> (7 - j)) & 1;
-    }
-  }
-  // 调整大小到原始图像尺寸
-  return Array.from(unpacked.slice(0, shape[0] * shape[1])).map(val => val === 1);
-}
+const segStore = useSegStore();
 
 const generateSegmentation = async () => {
   loading.value = true;
@@ -48,26 +33,25 @@ const generateSegmentation = async () => {
     
     const data = response.data;
     
-    // 处理返回的数据
-    console.log('生成分割结果:', {
-      horizontalSampling: horizontalSampling.value,
-      verticalSampling: verticalSampling.value,
-      overlapThreshold: overlapThreshold.value
-    });
+    // 解码base64编码的palette数据并转换为int32格式
+    const paletteBuffer = Uint8Array.from(atob(data.palette), c => c.charCodeAt(0));
+    const inflatedBuffer = pako.inflate(paletteBuffer);
+    const paletteArray = new Int32Array(inflatedBuffer.buffer, inflatedBuffer.byteOffset, inflatedBuffer.byteLength / 4);
     
-    // 解析mask数据
-    const { masks, sample_points, image_shape } = data;
-    const decompressedMasks = masks.map((mask: string) => 
-      decompressMask(mask, [image_shape[0], image_shape[1]])
-    );
+    // 将一维数组重构为二维数组
+    const height = data.height;
+    const width = data.width;
+    const palette2D = new Array(height);
+    for (let i = 0; i < height; i++) {
+      palette2D[i] = new Array(width);
+      for (let j = 0; j < width; j++) {
+        palette2D[i][j] = paletteArray[i * width + j];
+      }
+    }
     
-    // 输出处理结果
-    console.log('解压后的mask数量:', decompressedMasks.length);
-    console.log('采样点数量:', sample_points.length);
-    console.log('图像尺寸:', image_shape);
-    
-    // 这里可以将数据传递给其他组件或进行可视化处理
-    // 例如: emit到父组件或存储到全局状态管理中
+    // 保存到全局store
+    segStore.setPalette(palette2D);
+    console.log('mask数量:', data.num_masks);
     
   } catch (error) {
     console.error('生成分割时出错:', error);

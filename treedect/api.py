@@ -11,8 +11,9 @@ import io
 import gzip
 import torch
 from pydantic import BaseModel
+import logging
 
-from utils import generation_sample_grid
+from utils import *
 
 # ------------------------------------------------------------
 # global states
@@ -73,6 +74,7 @@ async def generate_segmentation(request: SegmentationRequest):
     point_grid = generation_sample_grid(height, width, row_sample_interval, col_sample_interval)
     with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
         predictor.set_image(img)
+    logging.info("prefilling complete")
 
     masks = []
     with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
@@ -82,49 +84,30 @@ async def generate_segmentation(request: SegmentationRequest):
                 point_label = np.array([1])
                 current_masks, _, _ = predictor.predict(point_coords=point_coord, point_labels=point_label)
                 masks.append(current_masks[0].astype(bool))
+    logging.info("prediction complete")
     
-    def is_overlap(mask_a: np.ndarray, mask_b: np.ndarray, overlap_ratio: float) -> bool:
-        overlap_mask = mask_a.astype(bool) & mask_b.astype(bool)
-        ratio = overlap_mask.sum() / mask_b.sum()
-        return ratio >= overlap_ratio
-    
-    filtered_masks = []
-    legal_sample_points = []
-    masks = np.stack(masks, axis=0)
-    masks = masks.reshape(point_grid.shape[1], point_grid.shape[0], height, width)
-    segment_mask = np.zeros((height, width))
+    filtered_grids, filtered_masks = filter_overlap_segments(point_grid, masks, height, width, overlap_ratio)
+    logging.info("filter complete")
 
-    for i in range(masks.shape[0]):
-        for j in range(masks.shape[1]):
-
-            if is_overlap(segment_mask, masks[i, j], overlap_ratio):
-                print(i, j)
-                segment_mask = segment_mask.astype(bool) | masks[i, j].astype(bool)
-                continue
-
-            filtered_masks.append(masks[i, j])
-            legal_sample_points.append(point_grid[j, i].tolist())  # 转换为列表以便JSON序列化
-            segment_mask = segment_mask.astype(bool) | masks[i, j].astype(bool)
+    num_masks = len(filtered_masks)
     
-    # 处理mask返回格式
-    encoded_masks = []
-    for mask in filtered_masks:
-        # 将bool数组压缩
-        mask_bytes = np.packbits(mask.flatten()).tobytes()
-        # 使用gzip进一步压缩
-        compressed_mask = gzip.compress(mask_bytes)
-        # base64编码以便传输
-        encoded_mask = base64.b64encode(compressed_mask).decode('utf-8')
-        encoded_masks.append(encoded_mask)
-    
-    # 将legal_sample_points转换为可序列化的格式
-    sample_points_serializable = [point for point in legal_sample_points]
+    palette = masks_to_palette(filtered_masks, height, width)
+
+    # 使用gzip压缩数据而不是np.save
+    buffer = io.BytesIO()
+    # 将palette数据以原始二进制形式写入缓冲区
+    palette_bytes = palette.tobytes()
+    # 使用gzip压缩
+    compressed_data = gzip.compress(palette_bytes)
+    # 进行base64编码
+    palette_base64 = base64.b64encode(compressed_data).decode('utf-8')
     
     return JSONResponse(content={
-        "masks": encoded_masks,
-        "sample_points": sample_points_serializable,
-        "image_shape": [height, width]
+        "palette": palette_base64,
+        "num_masks": num_masks,
+        "height": height,
+        "width": width
     })
-
+    
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

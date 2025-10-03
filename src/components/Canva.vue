@@ -14,9 +14,10 @@
 </template>
 
 <script setup>
+import { useSegStore } from '@/stores/SegStore';
 import axios from 'axios';
 import { NButton } from 'naive-ui';
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 
 const stageConfig = ref({
     width: 0,
@@ -36,6 +37,20 @@ const imageConfig = ref({
   height: 0,
   draggable: true
 });
+
+const segStore = useSegStore();
+
+// 监视palette变化
+watch(
+  () => segStore.palette,
+  (newPalette) => {
+    // 检查palette是否为空
+    if (newPalette && newPalette.length > 0) {
+      console.log('Palette updated:', newPalette);
+    }
+  },
+  { deep: true }
+);
 
 // 处理拖拽开始
 const handleDragStart = () => {
