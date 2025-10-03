@@ -108,6 +108,31 @@ async def generate_segmentation(request: SegmentationRequest):
         "height": height,
         "width": width
     })
+
+class PointSegmentRequest(BaseModel):
+    x: int
+    y: int
+
+@app.post("/point_segment")
+def point_segment(request: PointSegmentRequest):
+    x = request.x
+    y = request.y
+    point_coord = np.array([[x, y]]) 
+    point_label = np.array([1])
+    with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
+        current_masks, _, _ = predictor.predict(point_coords=point_coord, point_labels=point_label)
+    mask = current_masks[0].astype(np.int32)
+    buffer = io.BytesIO()
+    mask_bytes = mask.tobytes()
+    compressed_data = gzip.compress(mask_bytes)
+    mask_base64 = base64.b64encode(compressed_data).decode('utf-8')
+    height, width = img.shape[:2]
+
+    return JSONResponse(content={
+        "mask": mask_base64,
+        "height": height,
+        "width": width
+    })
     
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
