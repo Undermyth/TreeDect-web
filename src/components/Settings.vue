@@ -5,6 +5,7 @@
       <n-input-number v-model:value="verticalSampling" placeholder="纵向采样频率" />
       <n-input-number v-model:value="overlapThreshold" placeholder="重合比阈值" />
       <n-button type="primary" @click="generateSegmentation" :loading="loading">生成分割</n-button>
+      <n-switch v-model:value="segStore.showMask" />
     </n-space>
   </div>
 </template>
@@ -12,13 +13,13 @@
 <script setup lang="ts">
 import { useSegStore } from '@/stores/SegStore';
 import axios from 'axios';
-import { NButton, NInputNumber, NSpace } from 'naive-ui';
+import { NButton, NInputNumber, NSpace, NSwitch } from 'naive-ui';
 import pako from 'pako';
 import { ref } from 'vue';
 
 const horizontalSampling = ref<number>(50)
 const verticalSampling = ref<number>(50)
-const overlapThreshold = ref<number>(0.2)
+const overlapThreshold = ref<number>(0.5)
 const loading = ref<boolean>(false)
 const segStore = useSegStore();
 

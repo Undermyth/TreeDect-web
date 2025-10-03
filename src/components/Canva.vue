@@ -5,7 +5,7 @@
         <v-layer ref="layer">
           <v-image :config="imageConfig" v-if="imageConfig.image" @dragstart="handleDragStart" @dragend="handleDragEnd"/>
           <!-- 添加用于显示分割结果的图层 -->
-          <v-image :config="segmentationOverlayConfig" v-if="segmentationOverlayConfig.image"/>
+          <v-image :config="segmentationOverlayConfig" v-if="segmentationOverlayConfig.image && segStore.showMask"/>
         </v-layer>
       </v-stage>
     </div>
@@ -25,6 +25,7 @@ import { createRGBFromPalette, ImgToBase64 } from './Canva';
 const stageConfig = ref({
     width: 0,
     height: 0,
+    draggable: true,
 });
 
 // 如果需要访问stage和layer的引用
@@ -38,7 +39,7 @@ const imageConfig = ref({
   y: 0,
   width: 0,
   height: 0,
-  draggable: true
+  draggable: false
 });
 
 // 分割图层配置
@@ -48,8 +49,8 @@ const segmentationOverlayConfig = ref({
   y: 0,
   width: 0,
   height: 0,
-  draggable: true,
-  opacity: 0.9
+  draggable: false,
+  opacity: 0.6
 });
 
 const segStore = useSegStore();

@@ -22,7 +22,7 @@ const createRGBFromPalette = (palette) => {
     for (let i = 1; i <= maxIndex; i++) {
         colorMap[i] = {
             r: Math.floor(Math.random() * 256),
-            g: Math.floor(Math.random() * 256),
+            g: Math.floor(Math.random() * 128),
             b: Math.floor(Math.random() * 256)
         };
     }
@@ -37,7 +37,7 @@ const createRGBFromPalette = (palette) => {
                 rgbData[pixelIndex] = colorMap[index].r;     // R
                 rgbData[pixelIndex + 1] = colorMap[index].g; // G
                 rgbData[pixelIndex + 2] = colorMap[index].b; // B
-                rgbData[pixelIndex + 3] = 128;               // A (半透明)
+                rgbData[pixelIndex + 3] = 255;               // A (半透明)
             } else {
                 // 索引为0的像素保持透明
                 rgbData[pixelIndex] = 0;

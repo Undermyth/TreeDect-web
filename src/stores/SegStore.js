@@ -2,7 +2,8 @@ import { defineStore } from 'pinia'
 
 export const useSegStore = defineStore('seg', {
     state: () => ({
-        palette: []
+        palette: [],
+        showMask: true
     }),
     actions: {
         setPalette(value) {
