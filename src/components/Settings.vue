@@ -53,6 +53,7 @@ const generateSegmentation = async () => {
     // 保存到全局store
     segStore.setPalette(palette2D);
     console.log('mask数量:', data.num_masks);
+    console.log('size', height, width);
     
   } catch (error) {
     console.error('生成分割时出错:', error);
