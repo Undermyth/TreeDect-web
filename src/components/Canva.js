@@ -58,7 +58,7 @@ class PaletteImage {
                     rgbData[pixelIndex] = this.colorMap[index].r;     // R
                     rgbData[pixelIndex + 1] = this.colorMap[index].g; // G
                     rgbData[pixelIndex + 2] = this.colorMap[index].b; // B
-                    rgbData[pixelIndex + 3] = 255;               // A (半透明)
+                    rgbData[pixelIndex + 3] = 128;               // A (半透明)
                 } else {
                     // 索引为0的像素保持透明
                     rgbData[pixelIndex] = 0;
@@ -133,7 +133,7 @@ class PaletteImage {
                         imageData.data[pixelIndex] = r;     // R
                         imageData.data[pixelIndex + 1] = g; // G
                         imageData.data[pixelIndex + 2] = b; // B
-                        imageData.data[pixelIndex + 3] = 255; // A
+                        imageData.data[pixelIndex + 3] = 128; // A
                     }
                 }
             }

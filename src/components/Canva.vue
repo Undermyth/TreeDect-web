@@ -58,7 +58,7 @@ const segmentationOverlayConfig = ref({
   width: 0,
   height: 0,
   draggable: false,
-  opacity: 0.6
+  opacity: 1
 });
 
 // ---------------------------------------------------------------
@@ -107,13 +107,9 @@ const getMousePixelPosition = () => {
   const scaleX = imgConfig.width / imgConfig.image.width;
   const scaleY = imgConfig.height / imgConfig.image.height;
 
-  console.log(pointer.x, pointer.y, stagePosition.x, stagePosition.y, imgConfig.x, imgConfig.y);
-  console.log(stageScale.x, stageScale.y, scaleX, scaleY);
-  
   // 计算图像上的实际像素坐标
   const pixelX = Math.floor(relativeX / scaleX);
   const pixelY = Math.floor(relativeY / scaleY);
-  console.log(pixelX, pixelY);
   return {x: pixelX, y: pixelY};
 }
 
@@ -179,7 +175,6 @@ const handleWheel = (e) => {
   const newScale = direction > 0 ? oldScale * scaleBy : oldScale / scaleBy;
 
   stageNode.scale({ x: newScale, y: newScale });
-  console.log(newScale);
 
   const newPos = {
     x: pointer.x - mousePointTo.x * newScale,
@@ -274,15 +269,11 @@ const handleRightClick = async (e) => {
           mask2D[i][j] = maskArray[i * width + j];
         }
       }
-      await paletteImage.value.update(mask2D);
-    } catch (error) {
-      console.error('点预测时出现错误:', error);
-    }
-    
-    if (paletteImage.value) {
       const canvas = segmentationOverlayConfig.value.image;
       const ctx = canvas.getContext('2d');
       paletteImage.value.update(ctx, segLayer, mask2D);
+    } catch (error) {
+      console.error('点预测时出现错误:', error);
     }
   }
 }
