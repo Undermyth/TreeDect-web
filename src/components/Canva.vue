@@ -1,7 +1,17 @@
 <template>
   <div class="canvas-container">
-    <div class="stage-wrapper">
-      <v-stage ref="stage" :config="stageConfig" @wheel="handleWheel" @click="handleClick" @contextmenu="handleRightClick">
+    <div class="stage-wrapper" @contextmenu="handleRightClick">
+      <n-dropdown
+        placement="bottom-start"
+        trigger="manual"
+        :x="menuX"
+        :y="menuY"
+        :options="menuOptions"
+        :show="showDropdown"
+        :on-clickoutside="onClickoutside"
+        @select="handleSelect"
+      />
+      <v-stage ref="stage" :config="stageConfig" @wheel="handleWheel" @mousemove="handleMove" @click="handleClick">
         <v-layer ref="layer">
           <v-image :config="imageConfig" v-if="imageConfig.image"/>
         </v-layer>
@@ -19,9 +29,8 @@
 <script setup>
 import { useSegStore } from '@/stores/SegStore';
 import axios from 'axios';
-import { NButton } from 'naive-ui';
-import pako from 'pako';
-import { onMounted, onUnmounted, ref, watch } from 'vue';
+import { NButton, NDropdown } from 'naive-ui';
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { PaletteImage } from './Canva';
 
 // 如果需要访问stage和layer的引用
@@ -33,6 +42,9 @@ const segStore = useSegStore();
 
 // 添加鼠标位置响应式变量
 const mousePosition = ref({ x: 0, y: 0 });
+const showDropdown = ref(false)
+const menuX = ref(0)
+const menuY = ref(0)
 
 const stageConfig = ref({
     x: 0,
@@ -60,6 +72,25 @@ const segmentationOverlayConfig = ref({
   draggable: false,
   opacity: 1
 });
+
+const menuOptions = [
+  {
+    label: '删除',
+    key: 'delete'
+  },
+  {
+    label: '重新识别',
+    key: 'segment'
+  },
+  {
+    label: '调整（增加）',
+    key: 'increment'
+  },
+  {
+    label: '调整（删减）',
+    key: 'decrement'
+  }
+]
 
 // ---------------------------------------------------------------
 // util functions
@@ -139,14 +170,19 @@ watch(
   { deep: true }
 );
 
+// ---------------------------------------------------------------
+// mouse and wheel events
+// ---------------------------------------------------------------
 const handleMove = (e) => {
-  // 获取stage节点
-  const stageNode = stage.value.getNode();
-  
-  // 获取鼠标在stage中的位置
-  const pointer = stageNode.getPointerPosition();
-
-  const position = getMousePixelPosition(pointer.x, pointer.y);
+  const position = getMousePixelPosition();
+  if (position) {
+    const canvas = segmentationOverlayConfig.value.image;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      // currently too slow, for future optimization and debugging
+      // paletteImage.value.hover(ctx, segLayer, position.x, position.y);   
+    }
+  }
 }
 
 const handleWheel = (e) => {
@@ -183,6 +219,9 @@ const handleWheel = (e) => {
   stageNode.position(newPos);
 };
 
+// ---------------------------------------------------------------
+// compositor actions
+// ---------------------------------------------------------------
 // 加载图像函数
 const loadImage = async () => {
   try {
@@ -239,43 +278,61 @@ const handleClick = (e) => {
 
 const handleRightClick = async (e) => {
   // 阻止默认的右键菜单行为
-  e.evt.preventDefault();
+  e.preventDefault();
+  showDropdown.value = false;
   const position = getMousePixelPosition();
-
-  if (position) {
-    // 更新鼠标位置
-    mousePosition.value = { x: position.x, y: position.y };
-
-    try {
-      console.time('point_segment request');
-      const response = await axios.post('/point_segment', {
-        x: position.x,
-        y: position.y,
-      });
-      console.timeEnd('point_segment request');
-      const data = response.data;
-      // 解码base64编码的palette数据并转换为int32格式
-      const maskBuffer = Uint8Array.from(atob(data.mask), c => c.charCodeAt(0));
-      const inflatedBuffer = pako.inflate(maskBuffer);
-      const maskArray = new Int32Array(inflatedBuffer.buffer, inflatedBuffer.byteOffset, inflatedBuffer.byteLength / 4);
-      
-      // 将一维数组重构为二维数组
-      const height = data.height;
-      const width = data.width;
-      const mask2D = new Array(height);
-      for (let i = 0; i < height; i++) {
-        mask2D[i] = new Array(width);
-        for (let j = 0; j < width; j++) {
-          mask2D[i][j] = maskArray[i * width + j];
-        }
-      }
-      const canvas = segmentationOverlayConfig.value.image;
-      const ctx = canvas.getContext('2d');
-      paletteImage.value.update(ctx, segLayer, mask2D);
-    } catch (error) {
-      console.error('点预测时出现错误:', error);
-    }
+  if (position.x < 0 || position.x >= imageConfig.value.image.width || position.y < 0 || position.y >= imageConfig.value.image.height) {
+    return;
   }
+  nextTick().then(() => {
+    showDropdown.value = true;
+    menuX.value = e.clientX;
+    menuY.value = e.clientY;
+  });
+  // const position = getMousePixelPosition();
+
+  // if (position) {
+  //   // 更新鼠标位置
+  //   mousePosition.value = { x: position.x, y: position.y };
+
+  //   try {
+  //     console.time('point_segment request');
+  //     const response = await axios.post('/point_segment', {
+  //       x: position.x,
+  //       y: position.y,
+  //     });
+  //     console.timeEnd('point_segment request');
+  //     const data = response.data;
+  //     // 解码base64编码的palette数据并转换为int32格式
+  //     const maskBuffer = Uint8Array.from(atob(data.mask), c => c.charCodeAt(0));
+  //     const inflatedBuffer = pako.inflate(maskBuffer);
+  //     const maskArray = new Int32Array(inflatedBuffer.buffer, inflatedBuffer.byteOffset, inflatedBuffer.byteLength / 4);
+      
+  //     // 将一维数组重构为二维数组
+  //     const height = data.height;
+  //     const width = data.width;
+  //     const mask2D = new Array(height);
+  //     for (let i = 0; i < height; i++) {
+  //       mask2D[i] = new Array(width);
+  //       for (let j = 0; j < width; j++) {
+  //         mask2D[i][j] = maskArray[i * width + j];
+  //       }
+  //     }
+  //     const canvas = segmentationOverlayConfig.value.image;
+  //     const ctx = canvas.getContext('2d');
+  //     paletteImage.value.update(ctx, segLayer, mask2D);
+  //   } catch (error) {
+  //     console.error('点预测时出现错误:', error);
+  //   }
+  // }
+}
+
+const onClickoutside = () => {
+  showDropdown.value = false
+}
+
+const handleSelect = (key) => {
+
 }
 
 onMounted(() => {
