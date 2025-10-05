@@ -73,14 +73,14 @@ class PaletteImage {
     }
 
     delete(ctx, layer, x, y) {
-        console.log('deletion activated at ', x, y);
+        console.log('deletion activated at ', y, x);
         // 检查坐标是否有效
-        if (x < 0 || x >= this.height || y < 0 || y >= this.width) {
+        if (y < 0 || y >= this.height || x < 0 || x >= this.width) {
             return;
         }
 
         // 获取该位置的索引值
-        const index = this.palette[y][x];   // WARN: 这对吗？
+        const index = this.palette[y][x];   // NOTE: 因为屏幕坐标和标准图片坐标是反过来的
 
         // 如果索引为0，直接返回
         if (index === 0) {
@@ -96,15 +96,13 @@ class PaletteImage {
 
         console.time('delete-operation');
         for (let i = 0; i < height; i++) {
+            const row = this.palette[i];
             for (let j = 0; j < width; j++) {
-                if (this.palette[i][j] === index) {
-                    this.palette[i][j] = 0;
+                if (row[j] === index) {
+                    row[j] = 0;
                     const pixelIndex = (i * width + j) * 4;
-                    // 设置为浅白色 (255, 255, 255, 200)
-                    imageData.data[pixelIndex] = 0;     // R
-                    imageData.data[pixelIndex + 1] = 0; // G
-                    imageData.data[pixelIndex + 2] = 0; // B
-                    imageData.data[pixelIndex + 3] = 0; // A
+                    // 设置为透明 (0, 0, 0, 0)
+                    imageData.data[pixelIndex + 3] = 0; // 仅改 Alpha 通道即可
                 }
             }
         }
