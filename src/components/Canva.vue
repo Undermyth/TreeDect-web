@@ -32,6 +32,7 @@
     </div>
     <div class="button-wrapper">
       <n-button type="primary" @click="loadImage">加载图像</n-button>
+      <n-button type="primary" @click="handleCluster">无监督分类</n-button>
       <n-button type="primary" @click="finishEdit">完成编辑</n-button>
     </div>
   </div>
@@ -41,8 +42,8 @@
 import { useSegStore } from '@/stores/SegStore';
 import axios from 'axios';
 import { NButton, NDropdown } from 'naive-ui';
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import pako from 'pako';
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { PaletteImage } from './Canva';
 
 // 如果需要访问stage和layer的引用
@@ -197,7 +198,6 @@ const handleMove = (e) => {
   if (position) {
     const canvas = segmentationOverlayConfig.value.image;
     if (canvas) {
-      console.log('modifying: ', position.x, position.y);
       const ctx = canvas.getContext('2d');
       paletteImage.value.modify(ctx, segLayer, drawIndex.value, position.x, position.y, increment.value); 
     }
@@ -210,11 +210,6 @@ const handleMouseDown = (e) => {
 
 const handleMouseUp = (e) => {
   mouseDown.value = false;
-}
-
-const finishEdit = () => {
-  editMode.value = false;
-  stageConfig.value.draggable = true;
 }
 
 const handleWheel = (e) => {
@@ -273,6 +268,11 @@ const loadImage = async () => {
   console.log('image load complete');
 };
 
+const finishEdit = () => {
+  editMode.value = false;
+  stageConfig.value.draggable = true;
+}
+
 // 更新stage尺寸
 const updateStageSize = () => {
   const wrapper = document.querySelector('.stage-wrapper');
@@ -280,19 +280,6 @@ const updateStageSize = () => {
     stageConfig.value.width = wrapper.clientWidth;
     stageConfig.value.height = wrapper.clientHeight;
   }
-};
-
-// 监听窗口大小变化
-const handleResize = () => {
-  updateStageSize();
-  // 如果已加载图像，重新调整图像大小
-  if (imageConfig.value.image) {
-    loadImage();
-  }
-};
-
-// 处理鼠标移动事件
-const handleClick = (e) => {
 };
 
 const handleRightClick = async (e) => {
@@ -313,6 +300,23 @@ const handleRightClick = async (e) => {
 
 const onClickoutside = () => {
   showDropdown.value = false
+}
+
+const handleCluster = async () => {
+  if (!paletteImage.value) {
+    console.log('No palette image available for clustering');
+    return;
+  }
+
+  try {
+    console.time('cluster request');
+    const response = await axios.post('/cluster', {
+      palette: paletteImage.value.palette
+    });
+    console.timeEnd('cluster request');
+  } catch (error) {
+    console.error('聚类时出现错误:', error);
+  }
 }
 
 const handleSelect = async (key) => {
@@ -381,6 +385,15 @@ const handleSelect = async (key) => {
 
   showDropdown.value = false;
 }
+
+// 监听窗口大小变化
+const handleResize = () => {
+  updateStageSize();
+  // 如果已加载图像，重新调整图像大小
+  if (imageConfig.value.image) {
+    loadImage();
+  }
+};
 
 onMounted(() => {
   updateStageSize();

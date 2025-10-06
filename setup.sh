@@ -8,3 +8,4 @@ pip install -r treedect/requirements.txt
 cd treedect/sam2 && pip install --no-build-isolation .
 export HF_ENDPOINT=https://hf-mirror.com
 huggingface-cli download facebook/sam2-hiera-large
+huggingface-cli download facebook/dinov2-small

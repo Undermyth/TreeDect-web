@@ -82,8 +82,9 @@ def masks_to_palette(masks: List[np.ndarray], height: int, width: int) -> np.nda
 
     palette = np.zeros((height, width)).astype(np.int32)
     for i, mask in enumerate(masks, start=1):
-        # 1. new mask will overwrite existing masks
+        # 1. new mask will not overwrite existing masks
         # 2. new mask is presented by idx
-        palette = palette * (1 - mask) + i * mask
+        palette_mask = (palette == 0)
+        palette = palette + i * (mask & palette_mask)
     
     return palette.astype(np.int32)

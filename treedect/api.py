@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 from sam2.build_sam import build_sam2
+from transformers import AutoImageProcessor, AutoModel
 import base64
 import uvicorn
 import cv2
@@ -12,13 +13,17 @@ import gzip
 import torch
 from pydantic import BaseModel
 import logging
+from torch.utils.data import DataLoader
 
 from utils import *
+from feature import FeatureExtractionDataset
 
 # ------------------------------------------------------------
 # global states
 # ------------------------------------------------------------
 predictor = None
+preprocessor = None
+extractor = None
 img = None
 
 def load_model(model_name = "facebook/sam2-hiera-large"):
@@ -27,7 +32,14 @@ def load_model(model_name = "facebook/sam2-hiera-large"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     predictor.model.to(device)
 
+def load_feature_extractor(model_name = "facebook/dinov2-small"):
+    global preprocessor, extractor
+    preprocessor = AutoImageProcessor.from_pretrained(model_name, local_files_only=True)
+    extractor = AutoModel.from_pretrained(model_name, local_files_only=True)
+
+
 load_model()
+load_feature_extractor()
 
 app = FastAPI()
 
@@ -133,6 +145,29 @@ def point_segment(request: PointSegmentRequest):
         "height": height,
         "width": width
     })
+
+class ClusterRequest(BaseModel):
+    palette: list
+
+@app.post("/cluster")
+def cluster(request: ClusterRequest):
+    # 将传入的二维列表转换为numpy数组
+    palette = np.array(request.palette, dtype=np.int32)
+    n_patch = 224 / extractor.config.patch_size
+    dataset = FeatureExtractionDataset(palette, img, n_patch)
+    loader = DataLoader(dataset, batch_size=64, shuffle=False, collate_fn=FeatureExtractionDataset.collate_fn)
+    for i, batch in enumerate(loader):
+        inputs = preprocessor(
+            images=batch['data'],
+            return_tensors="pt",
+            size={"height": 224, "width": 224},   # 直接 resize 到 224x224
+            crop_size=None,                       # 禁用 center crop
+            do_center_crop=False
+        )
+        with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
+            outputs = extractor(**inputs)
+    
+
     
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
