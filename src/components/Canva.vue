@@ -11,7 +11,17 @@
         :on-clickoutside="onClickoutside"
         @select="handleSelect"
       />
-      <v-stage ref="stage" :config="stageConfig" @wheel="handleWheel" @mousemove="handleMove" @click="handleClick">
+      <v-stage 
+        ref="stage"
+        :config="stageConfig" 
+        @mousedown="handleMouseDown"
+        @mousemove="handleMove"
+        @mouseup="handleMouseUp"
+        @wheel="handleWheel"
+        @touchstart="handleMouseDown"
+        @touchmove="handleMove"
+        @touchend="handleMouseUp"
+      >
         <v-layer ref="layer">
           <v-image :config="imageConfig" v-if="imageConfig.image"/>
         </v-layer>
@@ -22,6 +32,7 @@
     </div>
     <div class="button-wrapper">
       <n-button type="primary" @click="loadImage">加载图像</n-button>
+      <n-button type="primary" @click="finishEdit">完成编辑</n-button>
     </div>
   </div>
 </template>
@@ -31,6 +42,7 @@ import { useSegStore } from '@/stores/SegStore';
 import axios from 'axios';
 import { NButton, NDropdown } from 'naive-ui';
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import pako from 'pako';
 import { PaletteImage } from './Canva';
 
 // 如果需要访问stage和layer的引用
@@ -39,12 +51,16 @@ const layer = ref(null);
 const segLayer = ref(null);
 const paletteImage = ref(null);
 const segStore = useSegStore();
+const drawIndex = ref(null);
 
 // 添加鼠标位置响应式变量
 const mousePosition = ref({ x: 0, y: 0 });
 const showDropdown = ref(false)
 const menuX = ref(0)
 const menuY = ref(0)
+const editMode = ref(false);
+const increment = ref(true);
+const mouseDown = ref(false);
 
 const stageConfig = ref({
     x: 0,
@@ -174,15 +190,31 @@ watch(
 // mouse and wheel events
 // ---------------------------------------------------------------
 const handleMove = (e) => {
+  if (!editMode.value || !mouseDown.value) {
+    return;
+  }
   const position = getMousePixelPosition();
   if (position) {
     const canvas = segmentationOverlayConfig.value.image;
     if (canvas) {
+      console.log('modifying: ', position.x, position.y);
       const ctx = canvas.getContext('2d');
-      // currently too slow, for future optimization and debugging
-      // paletteImage.value.hover(ctx, segLayer, position.x, position.y);   
+      paletteImage.value.modify(ctx, segLayer, drawIndex.value, position.x, position.y, increment.value); 
     }
   }
+}
+
+const handleMouseDown = (e) => {
+  mouseDown.value = true;
+}
+
+const handleMouseUp = (e) => {
+  mouseDown.value = false;
+}
+
+const finishEdit = () => {
+  editMode.value = false;
+  stageConfig.value.draggable = true;
 }
 
 const handleWheel = (e) => {
@@ -261,19 +293,6 @@ const handleResize = () => {
 
 // 处理鼠标移动事件
 const handleClick = (e) => {
-  const position = getMousePixelPosition();
-
-  if (position) {
-    // 更新鼠标位置
-    mousePosition.value = { x: position.x, y: position.y };
-    
-    // 打印鼠标在图像上的像素位置
-    if (paletteImage.value) {
-      const canvas = segmentationOverlayConfig.value.image;
-      const ctx = canvas.getContext('2d');
-      paletteImage.value.delete(ctx, segLayer, position.x, position.y);
-    }
-  }
 };
 
 const handleRightClick = async (e) => {
@@ -284,55 +303,83 @@ const handleRightClick = async (e) => {
   if (position.x < 0 || position.x >= imageConfig.value.image.width || position.y < 0 || position.y >= imageConfig.value.image.height) {
     return;
   }
+  mousePosition.value = { x: position.x, y: position.y };
   nextTick().then(() => {
     showDropdown.value = true;
     menuX.value = e.clientX;
     menuY.value = e.clientY;
   });
-  // const position = getMousePixelPosition();
-
-  // if (position) {
-  //   // 更新鼠标位置
-  //   mousePosition.value = { x: position.x, y: position.y };
-
-  //   try {
-  //     console.time('point_segment request');
-  //     const response = await axios.post('/point_segment', {
-  //       x: position.x,
-  //       y: position.y,
-  //     });
-  //     console.timeEnd('point_segment request');
-  //     const data = response.data;
-  //     // 解码base64编码的palette数据并转换为int32格式
-  //     const maskBuffer = Uint8Array.from(atob(data.mask), c => c.charCodeAt(0));
-  //     const inflatedBuffer = pako.inflate(maskBuffer);
-  //     const maskArray = new Int32Array(inflatedBuffer.buffer, inflatedBuffer.byteOffset, inflatedBuffer.byteLength / 4);
-      
-  //     // 将一维数组重构为二维数组
-  //     const height = data.height;
-  //     const width = data.width;
-  //     const mask2D = new Array(height);
-  //     for (let i = 0; i < height; i++) {
-  //       mask2D[i] = new Array(width);
-  //       for (let j = 0; j < width; j++) {
-  //         mask2D[i][j] = maskArray[i * width + j];
-  //       }
-  //     }
-  //     const canvas = segmentationOverlayConfig.value.image;
-  //     const ctx = canvas.getContext('2d');
-  //     paletteImage.value.update(ctx, segLayer, mask2D);
-  //   } catch (error) {
-  //     console.error('点预测时出现错误:', error);
-  //   }
-  // }
 }
 
 const onClickoutside = () => {
   showDropdown.value = false
 }
 
-const handleSelect = (key) => {
+const handleSelect = async (key) => {
 
+  if (key === 'delete') {
+    if (paletteImage.value) {
+      const canvas = segmentationOverlayConfig.value.image;
+      const ctx = canvas.getContext('2d');
+      paletteImage.value.delete(ctx, segLayer, mousePosition.value.x, mousePosition.value.y);
+    }
+  }
+
+  else if (key === 'segment') {
+    try {
+      console.time('point_segment request');
+      const response = await axios.post('/point_segment', {
+        x: mousePosition.value.x,
+        y: mousePosition.value.y,
+      });
+      console.timeEnd('point_segment request');
+      const data = response.data;
+      // 解码base64编码的palette数据并转换为int32格式
+      const maskBuffer = Uint8Array.from(atob(data.mask), c => c.charCodeAt(0));
+      const inflatedBuffer = pako.inflate(maskBuffer);
+      const maskArray = new Int32Array(inflatedBuffer.buffer, inflatedBuffer.byteOffset, inflatedBuffer.byteLength / 4);
+      
+      // 将一维数组重构为二维数组
+      const height = data.height;
+      const width = data.width;
+      const mask2D = new Array(height);
+      for (let i = 0; i < height; i++) {
+        mask2D[i] = new Array(width);
+        for (let j = 0; j < width; j++) {
+          mask2D[i][j] = maskArray[i * width + j];
+        }
+      }
+      const canvas = segmentationOverlayConfig.value.image;
+      const ctx = canvas.getContext('2d');
+      paletteImage.value.update(ctx, segLayer, mask2D);
+    } catch (error) {
+      console.error('点预测时出现错误:', error);
+    }
+  }
+
+  else if (key === 'increment') {
+    const index = paletteImage.value.getIndex(mousePosition.value.x, mousePosition.value.y);
+    if (index == 0) {
+      return;
+    }
+    editMode.value = true;
+    increment.value = true;
+    drawIndex.value = index;
+    stageConfig.value.draggable = false;
+  }
+
+  else if (key === 'decrement') {
+    const index = paletteImage.value.getIndex(mousePosition.value.x, mousePosition.value.y);
+    if (index == 0) {
+      return;
+    }
+    editMode.value = true;
+    increment.value = false;
+    drawIndex.value = index;
+    stageConfig.value.draggable = false;
+  }
+
+  showDropdown.value = false;
 }
 
 onMounted(() => {

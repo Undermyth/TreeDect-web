@@ -10,7 +10,8 @@ class PaletteImage {
             r: 212,
             g: 240,
             b: 248
-        }
+        };
+        this.segMap = {};
     }
 
     getColorMap() {
@@ -58,6 +59,12 @@ class PaletteImage {
                     rgbData[pixelIndex + 1] = this.colorMap[index].g; // G
                     rgbData[pixelIndex + 2] = this.colorMap[index].b; // B
                     rgbData[pixelIndex + 3] = 128;               // A (半透明)
+
+                    // if (!(index in this.segMap)) {
+                    //     this.segMap[index] = { x: [], y: [] };
+                    // }
+                    // this.segMap[index].x.push(i);
+                    // this.segMap[index].y.push(j);
                 } else {
                     // 索引为0的像素保持透明
                     rgbData[pixelIndex] = 0;
@@ -69,6 +76,10 @@ class PaletteImage {
         }
 
         return rgbData;
+    }
+
+    getIndex(x, y) {
+        return this.palette[y][x];
     }
 
     delete(ctx, layer, x, y) {
@@ -205,6 +216,36 @@ class PaletteImage {
 
         this.hoverElement = index;
         this.highlight(ctx, layer, index);
+    }
+
+    modify(ctx, layer, index, x, y, increment = true, radius = 5, invasive = false) {
+        var imageData = ctx.getImageData(0, 0, this.width, this.height);
+
+        const r2 = radius ** 2;
+        const iStart = Math.max(0, y - radius);
+        const iEnd = Math.min(this.height, y + radius);
+        for (let i = iStart; i < iEnd; i++) {
+            const tingent = Math.round(Math.sqrt(r2 - (y - i) ** 2));
+            const jStart = Math.max(0, x - tingent);
+            const jEnd = Math.min(this.width, x + tingent);
+            const row = this.palette[i];
+            for (let j = jStart; j < jEnd; j++) {
+                const pixelIndex = (i * this.width + j) * 4;
+                if (row[j] == 0 && increment) {
+                    row[j] = index;
+                    imageData.data[pixelIndex] = this.colorMap[index].r;     // R
+                    imageData.data[pixelIndex + 1] = this.colorMap[index].g; // G
+                    imageData.data[pixelIndex + 2] = this.colorMap[index].b; // B
+                    imageData.data[pixelIndex + 3] = 128; // A
+                }
+                else if (row[j] == index && !increment) {
+                    row[j] = 0;
+                    imageData.data[pixelIndex + 3] = 0; // A
+                }
+            }
+        }
+        ctx.putImageData(imageData, 0, 0);
+        layer.value.getNode().batchDraw();
     }
 
     fullRender(ctx, layer) {
