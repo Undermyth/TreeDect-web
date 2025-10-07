@@ -32,8 +32,8 @@
     </div>
     <div class="button-wrapper">
       <n-button type="primary" @click="loadImage">加载图像</n-button>
-      <n-button type="primary" @click="handleCluster">无监督分类</n-button>
-      <n-button type="primary" @click="finishEdit">完成编辑</n-button>
+      <n-button type="primary" @click="handleCluster" :loading="inCluster">无监督分类</n-button>
+      <n-button type="primary" @click="finishEdit" :disabled="!editMode">完成编辑</n-button>
     </div>
   </div>
 </template>
@@ -53,6 +53,7 @@ const segLayer = ref(null);
 const paletteImage = ref(null);
 const segStore = useSegStore();
 const drawIndex = ref(null);
+const clusterIndexes = ref([]);
 
 // 添加鼠标位置响应式变量
 const mousePosition = ref({ x: 0, y: 0 });
@@ -62,6 +63,7 @@ const menuY = ref(0)
 const editMode = ref(false);
 const increment = ref(true);
 const mouseDown = ref(false);
+const inCluster = ref(false);
 
 const stageConfig = ref({
     x: 0,
@@ -108,31 +110,6 @@ const menuOptions = [
     key: 'decrement'
   }
 ]
-
-const tableData = ref([])
-const tableColumns = [
-  {
-    title: "Class",
-    key: "id",
-    render(row) {
-      return h(
-        NButton,
-        {
-          strong: true,
-          tertiary: true,
-          size: 'small',
-          color: paletteImage.value.getHexColor(parseInt(row.id)),
-
-        },
-        { default: () => `class ${row.id}` }
-      )
-    }
-  },
-  {
-    title: ""
-  }
-]
-
 
 // ---------------------------------------------------------------
 // util functions
@@ -211,6 +188,22 @@ watch(
   },
   { deep: true }
 );
+
+watch(
+  () => segStore.highlightCluster,
+  (newHighlightCluster) => {
+    const indexes = [];
+    for (let i = 0; i < clusterIndexes.value.length; i++) {
+      if (clusterIndexes.value[i] == newHighlightCluster) {
+        indexes.push(i + 1);
+      }
+    }
+    console.log(clusterIndexes.value, newHighlightCluster, indexes);
+    const canvas = segmentationOverlayConfig.value.image;
+    const ctx = canvas.getContext('2d');
+    paletteImage.value.uniqueLight(ctx, segLayer, indexes);
+  }
+)
 
 // ---------------------------------------------------------------
 // mouse and wheel events
@@ -333,6 +326,7 @@ const handleCluster = async () => {
     return;
   }
 
+  inCluster.value = true;
   try {
     console.time('cluster request');
     const response = await axios.post('/cluster', {
@@ -344,10 +338,13 @@ const handleCluster = async () => {
     const canvas = segmentationOverlayConfig.value.image;
     const ctx = canvas.getContext('2d');
     paletteImage.value.cluster(ctx, segLayer, clusterMap);
+    clusterIndexes.value = clusterMap;
     segStore.setColorMap(paletteImage.value.getHexColor());
     segStore.setAreas(response.data.areas);
   } catch (error) {
     console.error('聚类时出现错误:', error);
+  } finally {
+    inCluster.value = false;
   }
 }
 

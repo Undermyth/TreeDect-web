@@ -6,7 +6,8 @@ export const useSegStore = defineStore('seg', {
         showMask: true,
         k: 6,
         colorMap: null,
-        areas: []
+        areas: [],
+        highlightCluster: -1
     }),
     actions: {
         setPalette(value) {
@@ -17,6 +18,9 @@ export const useSegStore = defineStore('seg', {
         },
         setAreas(value) {
             this.areas = [...value];
+        },
+        setHighlightCluster(value) {
+            this.highlightCluster = value
         }
     }
 })

@@ -22,6 +22,8 @@ class FeatureExtractionDataset(Dataset):
 
         self.area = [0 for _ in range(self.num_segs)]
 
+        self.valid = [1 for _ in range(self.num_segs)]
+
         self._generate_dataset()
         self._generate_selection()
 
@@ -38,6 +40,14 @@ class FeatureExtractionDataset(Dataset):
                     self.right[index] = max(self.right[index], j)
                     self.bottom[index] = max(self.bottom[index], i)
                     self.area[index] += 1
+
+        for i in range(self.num_segs):
+            if self.left[i] == float('inf'):
+                self.left[i] = 0
+                self.top[i] = 0
+                self.right[i] = 10
+                self.bottom[i] = 10
+                self.valid[i] = 0
 
         self.left = np.array(self.left).astype(np.int32)
         self.top = np.array(self.top).astype(np.int32)

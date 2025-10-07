@@ -5,7 +5,7 @@
       <n-input-number v-model:value="verticalSampling" placeholder="纵向采样频率" />
       <n-input-number v-model:value="overlapThreshold" placeholder="重合比阈值" />
       <n-input-number v-model:value="segStore.k" placeholder="聚类数" />
-      <n-button type="primary" @click="generateSegmentation" :loading="loading">生成分割</n-button>
+      <n-button type="primary" @click="generateSegmentation" :loading="loading">{{ progress }}</n-button>
       <n-switch v-model:value="segStore.showMask" />
     </n-space>
   </div>
@@ -23,9 +23,11 @@ const verticalSampling = ref<number>(50)
 const overlapThreshold = ref<number>(0.5)
 const loading = ref<boolean>(false)
 const segStore = useSegStore();
+const progress = ref("生成分割")
 
 const generateSegmentation = async () => {
   loading.value = true;
+  progress.value = 'Running inference';
   try {
     const response = await axios.post('/generate_segmentation', {
       row_sample_interval: horizontalSampling.value,
@@ -33,6 +35,7 @@ const generateSegmentation = async () => {
       overlap_ratio: overlapThreshold.value
     });
     
+    progress.value = 'Decoding';
     const data = response.data;
     
     // 解码base64编码的palette数据并转换为int32格式
@@ -51,6 +54,7 @@ const generateSegmentation = async () => {
       }
     }
     
+    progress.value = 'Rendering';
     // 保存到全局store
     segStore.setPalette(palette2D);
     console.log('mask数量:', data.num_masks);
@@ -59,6 +63,7 @@ const generateSegmentation = async () => {
   } catch (error) {
     console.error('生成分割时出错:', error);
   } finally {
+    progress.value = '生成分割';
     loading.value = false;
   }
 }

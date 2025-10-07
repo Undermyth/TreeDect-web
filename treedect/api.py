@@ -36,7 +36,7 @@ def load_model(model_name = "facebook/sam2-hiera-large"):
 
 def load_feature_extractor(model_name = "facebook/dinov2-small"):
     global preprocessor, extractor
-    preprocessor = AutoImageProcessor.from_pretrained(model_name, local_files_only=True)
+    preprocessor = AutoImageProcessor.from_pretrained(model_name, local_files_only=True, use_fast=True)
     extractor = AutoModel.from_pretrained(model_name, local_files_only=True)
 
 
@@ -158,7 +158,7 @@ def cluster(request: ClusterRequest):
     palette = np.array(request.palette, dtype=np.int32)
     n_patch = 224 / extractor.config.patch_size
     dataset = FeatureExtractionDataset(palette, img, n_patch)
-    loader = DataLoader(dataset, batch_size=64, shuffle=False, collate_fn=FeatureExtractionDataset.collate_fn)
+    loader = DataLoader(dataset, batch_size=128, shuffle=False, collate_fn=FeatureExtractionDataset.collate_fn)
     
     start_time = time.time()
     
@@ -178,9 +178,17 @@ def cluster(request: ClusterRequest):
     
     end_time = time.time()
     logging.info(f"Feature extraction took {end_time - start_time:.2f} seconds")
+
+    # filter invalid (deleted) segments
+    features = []
+    indexes = []
+    for i, (valid, cls_token) in enumerate(zip(dataset.valid, cls_tokens)):
+        if valid:
+            features.append(cls_token)
+            indexes.append(i)
     
     # 将特征向量转换为numpy数组用于聚类
-    features = torch.stack(cls_tokens).cpu().numpy()
+    features = torch.stack(features).cpu().numpy()
     
     # 执行K-means聚类
     start_time = time.time()
@@ -189,9 +197,15 @@ def cluster(request: ClusterRequest):
     end_time = time.time()
     logging.info(f"K-means clustering took {end_time - start_time:.2f} seconds")
 
+    labels = [-1 for _ in range(len(cls_tokens))]
+    for index, cluster_label in zip(indexes, cluster_labels):
+        labels[int(index)] = cluster_label
+    cluster_labels = np.array(labels)
+
     areas = np.zeros(cluster_labels.max() + 1)
     for label, area in zip(cluster_labels, dataset.area):
-        areas[label] += area
+        if label != -1:
+            areas[label] += area
 
     # 返回聚类结果
     return JSONResponse(content={

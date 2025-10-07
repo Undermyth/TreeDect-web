@@ -22,7 +22,8 @@ const tableColumns = [
           strong: true,
           tertiary: true,
           size: 'small',
-          color: segStore.colorMap[parseInt(row.id)],
+          color: segStore.colorMap[parseInt(row.id) + 1],
+          onClick: () => onClickRow(row)
         },
         { default: () => `class ${row.id}` }
       )
@@ -44,6 +45,9 @@ watch(() => segStore.areas, (newAreas) => {
     }
 });
 
+const onClickRow = (row) => {
+    segStore.setHighlightCluster(parseInt(row.id) + 1);
+}
 
 </script>
 

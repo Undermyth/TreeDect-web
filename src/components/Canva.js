@@ -5,11 +5,11 @@ class PaletteImage {
         this.height = this.palette.length;
         this.width = this.palette[0].length;
         this.colorMap = this.getColorMap();
-        this.hoverElement = null;
+        this.hoverElement = [];
         this.hoverColor = {
-            r: 212,
-            g: 240,
-            b: 248
+            r: 255,
+            g: 165,
+            b: 0
         };
         this.segMap = {};
     }
@@ -165,16 +165,17 @@ class PaletteImage {
         layer.value.getNode().batchDraw();
     }
 
-    dehighlight(ctx, layer, index, render = true) {
+    dehighlight(ctx, layer, indexes, render = true) {
         var imageData = ctx.getImageData(0, 0, this.width, this.height);
         for (let i = 0; i < this.height; i++) {
             const row = this.palette[i];
             for (let j = 0; j < this.width; j++) {
-                if (row[j] == index) {
+                if (indexes.includes(row[j])) {
                     const pixelIndex = (i * this.width + j) * 4;
-                    imageData.data[pixelIndex] = this.colorMap[index].r;     // R
-                    imageData.data[pixelIndex + 1] = this.colorMap[index].g; // G
-                    imageData.data[pixelIndex + 2] = this.colorMap[index].b; // B
+                    console.log(row[j]);
+                    imageData.data[pixelIndex] = this.colorMap[parseInt(row[j])].r;     // R
+                    imageData.data[pixelIndex + 1] = this.colorMap[parseInt(row[j])].g; // G
+                    imageData.data[pixelIndex + 2] = this.colorMap[parseInt(row[j])].b; // B
                     imageData.data[pixelIndex + 3] = 64; // A
                 }
             }
@@ -185,17 +186,18 @@ class PaletteImage {
         }
     }
 
-    highlight(ctx, layer, index, render = true) {
+    highlight(ctx, layer, indexes, render = true) {
         var imageData = ctx.getImageData(0, 0, this.width, this.height);
+        console.log(indexes);
         for (let i = 0; i < this.height; i++) {
             const row = this.palette[i];
             for (let j = 0; j < this.width; j++) {
-                if (row[j] == index) {
+                if (indexes.includes(row[j])) {
                     const pixelIndex = (i * this.width + j) * 4;
                     imageData.data[pixelIndex] = this.hoverColor.r;     // R
                     imageData.data[pixelIndex + 1] = this.hoverColor.g; // G
                     imageData.data[pixelIndex + 2] = this.hoverColor.b; // B
-                    imageData.data[pixelIndex + 3] = 64; // A
+                    imageData.data[pixelIndex + 3] = 180; // A
                 }
             }
         }
@@ -205,29 +207,16 @@ class PaletteImage {
         }
     }
 
-    hover(ctx, layer, x, y) {
+    uniqueLight(ctx, layer, indexes) {
 
         // restore the color of the previous hover region
         const hoverIndex = this.hoverElement;
-        if (hoverIndex) {
-            this.dehighlight(ctx, layer, hoverIndex, render = false);
+        if (hoverIndex.length > 0) {
+            this.dehighlight(ctx, layer, hoverIndex);
         }
 
-        // highlight hover region        
-        // 检查坐标是否有效
-        if (y < 0 || y >= this.height || x < 0 || x >= this.width) {
-            this.hoverElement = null;
-            return;
-        }
-
-        // 获取该位置的索引值
-        const index = this.palette[y][x];   // NOTE: 因为屏幕坐标和标准图片坐标是反过来的
-        if (index == this.hoverElement || index == 0) {
-            return;
-        }
-
-        this.hoverElement = index;
-        this.highlight(ctx, layer, index);
+        this.hoverElement = indexes;
+        this.highlight(ctx, layer, indexes);
     }
 
     modify(ctx, layer, index, x, y, increment = true, radius = 5, invasive = false) {
