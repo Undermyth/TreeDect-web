@@ -20,6 +20,8 @@ class FeatureExtractionDataset(Dataset):
         self.right = [0 for _ in range(self.num_segs)]
         self.bottom = [0 for _ in range(self.num_segs)]    # right down corner
 
+        self.area = [0 for _ in range(self.num_segs)]
+
         self._generate_dataset()
         self._generate_selection()
 
@@ -35,46 +37,52 @@ class FeatureExtractionDataset(Dataset):
                     self.top[index] = min(self.top[index], i)
                     self.right[index] = max(self.right[index], j)
                     self.bottom[index] = max(self.bottom[index], i)
+                    self.area[index] += 1
 
         self.left = np.array(self.left).astype(np.int32)
         self.top = np.array(self.top).astype(np.int32)
         self.right = np.array(self.right).astype(np.int32)
         self.bottom = np.array(self.bottom).astype(np.int32)
 
-        center_h = (self.top + self.bottom) / 2
-        center_w = (self.left + self.right) / 2
+        self.bbox_left = self.left
+        self.bbox_top = self.top
+        self.bbox_right = self.right
+        self.bbox_bottom = self.bottom
 
-        seg_width = self.width / self.segment_ratio
-        seg_height = self.height / self.segment_ratio
+        # center_h = (self.top + self.bottom) / 2
+        # center_w = (self.left + self.right) / 2
 
-        bbox_left = np.round(center_w) - seg_width / 2
-        bbox_top = np.round(center_h) - seg_height / 2
-        bbox_right = np.round(center_w) + seg_width / 2
-        bbox_bottom = np.round(center_h) + seg_height / 2
+        # seg_width = self.width / self.segment_ratio
+        # seg_height = self.height / self.segment_ratio
 
-        # print(center_h, center_w)
-        # print(bbox_left, bbox_top, bbox_right, bbox_bottom)
+        # bbox_left = np.round(center_w) - seg_width / 2
+        # bbox_top = np.round(center_h) - seg_height / 2
+        # bbox_right = np.round(center_w) + seg_width / 2
+        # bbox_bottom = np.round(center_h) + seg_height / 2
 
-        mask = bbox_left < 0
-        bbox_right = bbox_right + mask * (0 - bbox_left)
-        bbox_left = bbox_left + mask * (0 - bbox_left)
+        # # print(center_h, center_w)
+        # # print(bbox_left, bbox_top, bbox_right, bbox_bottom)
 
-        mask = bbox_top < 0
-        bbox_bottom = bbox_bottom + mask * (0 - bbox_top)
-        bbox_top = bbox_top + mask * (0 - bbox_top)
+        # mask = bbox_left < 0
+        # bbox_right = bbox_right + mask * (0 - bbox_left)
+        # bbox_left = bbox_left + mask * (0 - bbox_left)
 
-        mask = bbox_right > self.width
-        bbox_left = bbox_left - mask * (bbox_right - self.width)
-        bbox_right = bbox_right - mask * (bbox_right - self.width)
+        # mask = bbox_top < 0
+        # bbox_bottom = bbox_bottom + mask * (0 - bbox_top)
+        # bbox_top = bbox_top + mask * (0 - bbox_top)
 
-        mask = bbox_bottom > self.height
-        bbox_top = bbox_top - mask * (bbox_bottom - self.height)
-        bbox_bottom = bbox_bottom - mask * (bbox_bottom - self.height)
+        # mask = bbox_right > self.width
+        # bbox_left = bbox_left - mask * (bbox_right - self.width)
+        # bbox_right = bbox_right - mask * (bbox_right - self.width)
 
-        self.bbox_left = bbox_left
-        self.bbox_right = bbox_right
-        self.bbox_top = bbox_top
-        self.bbox_bottom = bbox_bottom
+        # mask = bbox_bottom > self.height
+        # bbox_top = bbox_top - mask * (bbox_bottom - self.height)
+        # bbox_bottom = bbox_bottom - mask * (bbox_bottom - self.height)
+
+        # self.bbox_left = bbox_left
+        # self.bbox_right = bbox_right
+        # self.bbox_top = bbox_top
+        # self.bbox_bottom = bbox_bottom
 
     def _visualization(self):
         vis_image = self.image.copy()

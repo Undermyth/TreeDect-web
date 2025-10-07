@@ -14,9 +14,11 @@ import torch
 from pydantic import BaseModel
 import logging
 from torch.utils.data import DataLoader
+from sklearn.cluster import KMeans
 
 from utils import *
 from feature import FeatureExtractionDataset
+import time
 
 # ------------------------------------------------------------
 # global states
@@ -148,6 +150,7 @@ def point_segment(request: PointSegmentRequest):
 
 class ClusterRequest(BaseModel):
     palette: list
+    k: int
 
 @app.post("/cluster")
 def cluster(request: ClusterRequest):
@@ -156,6 +159,10 @@ def cluster(request: ClusterRequest):
     n_patch = 224 / extractor.config.patch_size
     dataset = FeatureExtractionDataset(palette, img, n_patch)
     loader = DataLoader(dataset, batch_size=64, shuffle=False, collate_fn=FeatureExtractionDataset.collate_fn)
+    
+    start_time = time.time()
+    
+    cls_tokens = []
     for i, batch in enumerate(loader):
         inputs = preprocessor(
             images=batch['data'],
@@ -166,6 +173,31 @@ def cluster(request: ClusterRequest):
         )
         with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
             outputs = extractor(**inputs)
+        for cls_token in outputs[1]:
+            cls_tokens.append(cls_token)
+    
+    end_time = time.time()
+    logging.info(f"Feature extraction took {end_time - start_time:.2f} seconds")
+    
+    # 将特征向量转换为numpy数组用于聚类
+    features = torch.stack(cls_tokens).cpu().numpy()
+    
+    # 执行K-means聚类
+    start_time = time.time()
+    kmeans = KMeans(n_clusters=request.k, random_state=0)
+    cluster_labels = kmeans.fit_predict(features)
+    end_time = time.time()
+    logging.info(f"K-means clustering took {end_time - start_time:.2f} seconds")
+
+    areas = np.zeros(cluster_labels.max() + 1)
+    for label, area in zip(cluster_labels, dataset.area):
+        areas[label] += area
+
+    # 返回聚类结果
+    return JSONResponse(content={
+        "labels": cluster_labels.tolist(),
+        "areas": areas.tolist()
+    })
     
 
     

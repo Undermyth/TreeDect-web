@@ -3,6 +3,7 @@
 // import HelloWorld from './components/HelloWorld.vue'
 // import TheWelcome from './components/TheWelcome.vue'
 import Canva from './components/Canva.vue';
+import Log from './components/Log.vue';
 import Settings from './components/Settings.vue';
 </script>
 
@@ -22,7 +23,7 @@ import Settings from './components/Settings.vue';
       
       <!-- 下方日志区域 (30%) -->
       <div class="log-section">
-        <p>日志区域</p>
+        <Log/>
       </div>
     </div>
   </div>
@@ -62,7 +63,7 @@ import Settings from './components/Settings.vue';
 }
 
 .config-section {
-  flex: 7;
+  flex: 6;
   background-color: #d0d0d0;
   display: flex;
   align-items: center;
@@ -70,7 +71,7 @@ import Settings from './components/Settings.vue';
 }
 
 .log-section {
-  flex: 3;
+  flex: 4;
   background-color: #c0c0c0;
   display: flex;
   align-items: center;

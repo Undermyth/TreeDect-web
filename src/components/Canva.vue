@@ -43,7 +43,7 @@ import { useSegStore } from '@/stores/SegStore';
 import axios from 'axios';
 import { NButton, NDropdown } from 'naive-ui';
 import pako from 'pako';
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { nextTick, onMounted, onUnmounted, ref, watch, h } from 'vue';
 import { PaletteImage } from './Canva';
 
 // 如果需要访问stage和layer的引用
@@ -108,6 +108,31 @@ const menuOptions = [
     key: 'decrement'
   }
 ]
+
+const tableData = ref([])
+const tableColumns = [
+  {
+    title: "Class",
+    key: "id",
+    render(row) {
+      return h(
+        NButton,
+        {
+          strong: true,
+          tertiary: true,
+          size: 'small',
+          color: paletteImage.value.getHexColor(parseInt(row.id)),
+
+        },
+        { default: () => `class ${row.id}` }
+      )
+    }
+  },
+  {
+    title: ""
+  }
+]
+
 
 // ---------------------------------------------------------------
 // util functions
@@ -311,9 +336,16 @@ const handleCluster = async () => {
   try {
     console.time('cluster request');
     const response = await axios.post('/cluster', {
-      palette: paletteImage.value.palette
+      palette: paletteImage.value.palette,
+      k: segStore.k
     });
     console.timeEnd('cluster request');
+    const clusterMap = response.data.labels; // 修复：正确访问响应数据
+    const canvas = segmentationOverlayConfig.value.image;
+    const ctx = canvas.getContext('2d');
+    paletteImage.value.cluster(ctx, segLayer, clusterMap);
+    segStore.setColorMap(paletteImage.value.getHexColor());
+    segStore.setAreas(response.data.areas);
   } catch (error) {
     console.error('聚类时出现错误:', error);
   }

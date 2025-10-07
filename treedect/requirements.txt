@@ -3,3 +3,4 @@ uvicorn
 opencv-python
 huggingface_hub
 transformers
+scikit-learn

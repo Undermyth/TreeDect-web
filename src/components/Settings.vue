@@ -4,6 +4,7 @@
       <n-input-number v-model:value="horizontalSampling" placeholder="横向采样频率" />
       <n-input-number v-model:value="verticalSampling" placeholder="纵向采样频率" />
       <n-input-number v-model:value="overlapThreshold" placeholder="重合比阈值" />
+      <n-input-number v-model:value="segStore.k" placeholder="聚类数" />
       <n-button type="primary" @click="generateSegmentation" :loading="loading">生成分割</n-button>
       <n-switch v-model:value="segStore.showMask" />
     </n-space>

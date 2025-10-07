@@ -39,6 +39,18 @@ class PaletteImage {
         return colorMap;
     }
 
+    getHexColor() {
+        const hexColorMap = {};
+        for (let i = 1; i <= this.numSegs; i++) {
+            const color = this.colorMap[i];
+            const r = color.r.toString(16).padStart(2, '0');
+            const g = color.g.toString(16).padStart(2, '0');
+            const b = color.b.toString(16).padStart(2, '0');
+            hexColorMap[i] = `#${r}${g}${b}`;
+        }
+        return hexColorMap;
+    }
+
     createRGBFromPalette() {
         if (!this.palette || this.palette.length === 0) return null;
 
@@ -241,6 +253,28 @@ class PaletteImage {
                 else if (row[j] == index && !increment) {
                     row[j] = 0;
                     imageData.data[pixelIndex + 3] = 0; // A
+                }
+            }
+        }
+        ctx.putImageData(imageData, 0, 0);
+        layer.value.getNode().batchDraw();
+    }
+
+    cluster(ctx, layer, clusterMap) {
+        var imageData = ctx.getImageData(0, 0, this.width, this.height);
+        for (let i = 0; i < this.height; i++) {
+            const row = this.palette[i];
+            for (let j = 0; j < this.width; j++) {
+                const index = row[j];
+                if (index != 0) {
+                    const pixelIndex = (i * this.width + j) * 4;
+                    // index - 1: index in [1, segs], clusterMap starting from 0
+                    // + 1: kmeans index starting from 0, colorMap from 1
+                    const clusterIndex = clusterMap[index - 1] + 1;
+                    imageData.data[pixelIndex] = this.colorMap[clusterIndex].r;     // R
+                    imageData.data[pixelIndex + 1] = this.colorMap[clusterIndex].g; // G
+                    imageData.data[pixelIndex + 2] = this.colorMap[clusterIndex].b; // B
+                    imageData.data[pixelIndex + 3] = 128; // A
                 }
             }
         }
