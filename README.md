@@ -1,44 +1,20 @@
 # TreeDect-web
 
-This template should help get you started developing with Vue 3 in Vite.
+A tool for detecting and counting trees from drones.
 
-## Recommended IDE Setup
+> [!WARNING]
+> This repo is still in early stage of developing. Any bug is possible.
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+# Requirements
 
-## Recommended Browser Setup
+- RAM > 8G
+- Nvidia GPU with VRAM >= 8G
+- CUDA >= 11.x
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd) 
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+# Installation
 
-## Customize configuration
+Scripts for environment setup is included in `setup.sh` and `node.sh`.
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+To launch the frontend, run `npm run dev` and visit http://localhost:5173.
 
-## Project Setup
-
-```sh
-npm install
-```
-
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Lint with [ESLint](https://eslint.org/)
-
-```sh
-npm run lint
-```
+To launch the backend, enter `treedect/` subfolder and run `python api.py`. The default backend is launched at http://localhost:8000.
