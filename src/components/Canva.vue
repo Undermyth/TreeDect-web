@@ -31,7 +31,14 @@
       </v-stage>
     </div>
     <div class="button-wrapper">
-      <n-button type="primary" @click="loadImage">加载图像</n-button>
+      <input 
+        type="file" 
+        ref="fileInput" 
+        style="display: none;" 
+        accept="image/*" 
+        @change="loadImage"
+      />
+      <n-button type="primary" @click="handleFileInputClick">加载图像</n-button>
       <n-button type="primary" @click="handleCluster" :loading="inCluster">无监督分类</n-button>
       <n-button type="primary" @click="finishEdit" :disabled="!editMode">完成编辑</n-button>
     </div>
@@ -267,23 +274,51 @@ const handleWheel = (e) => {
 // ---------------------------------------------------------------
 // compositor actions
 // ---------------------------------------------------------------
-// 加载图像函数
-const loadImage = async () => {
-  try {
-    const response = await axios.post('/load_image');
-    const data = response.data;
-    const base64Image = data.image; // 假设返回的base64图像在image字段中
-    
-    // 创建Image对象
-    const img = new Image();
-    img.src = `data:image/png;base64,${base64Image}`;
-    
-    // 图像加载完成后更新imageConfig
-    img.onload = () => setImgConfig(img, imageConfig);
-  } catch (error) {
-    console.error('加载图像失败:', error);
+
+const handleFileInputClick = () => {
+  // 触发隐藏的文件输入框点击事件
+  const fileInput = document.querySelector('input[type="file"]');
+  if (fileInput) {
+    fileInput.click();
   }
-  console.log('image load complete');
+};
+
+// 加载图像函数
+const loadImage = async (event) => {
+  try {
+    const file = event.target.files[0]; // 从事件中提取文件
+    if (!file) {
+      console.error('未选择文件');
+      return;
+    }
+
+    // 创建 FormData 对象并附加文件
+    const formData = new FormData();
+    formData.append('file', file); // 确保字段名与后端一致
+
+    // 上传图像到后端接口
+    const response = await axios.post('/load_image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data', // 设置请求头
+      },
+    });
+
+    // 创建 FileReader 对象读取文件
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.src = e.target.result; // 将读取结果设置为图像源
+
+      // 图像加载完成后更新 imageConfig
+      img.onload = () => setImgConfig(img, imageConfig);
+    };
+
+    // 读取文件为 Data URL
+    reader.readAsDataURL(file);
+
+  } catch (error) {
+    console.error('加载或上传图像失败:', error);
+  }
 };
 
 const finishEdit = () => {

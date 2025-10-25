@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sam2.sam2_image_predictor import SAM2ImagePredictor
@@ -55,17 +55,27 @@ app.add_middleware(
 )
 
 @app.post("/load_image")
-async def load_image():
+async def load_image(file: UploadFile = File(...)):
     global img
     try:
-        # 读取example.jpg文件并进行base64编码
-        with open("example.jpg", "rb") as image_file:
-            encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+        # 读取上传的文件内容
+        contents = await file.read()
         
-        img = cv2.imread("example.jpg")
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        # 返回base64编码的图像
-        return JSONResponse(content={"image": encoded_string})
+        # 将文件内容转换为 numpy 数组
+        nparr = np.frombuffer(contents, np.uint8)
+        
+        # 使用 cv2 解码图像
+        img_cv2 = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        # 转换为 RGB 格式
+        img = cv2.cvtColor(img_cv2, cv2.COLOR_BGR2RGB)
+        
+        # 检查图像是否成功加载
+        if img is None:
+            return JSONResponse(content={"error": "图像加载失败"}, status_code=400)
+        
+        # 返回成功信息
+        return JSONResponse(content={"message": "图像加载成功", "height": img.shape[0], "width": img.shape[1]})
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
