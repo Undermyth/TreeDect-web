@@ -2,6 +2,8 @@
 
 A tool for detecting and counting trees from drones.
 
+This project is sponsored by Fujian Agricultural And Forestry University.
+
 > [!WARNING]
 > This repo is still in early stage of developing. Any bug is possible.
 
