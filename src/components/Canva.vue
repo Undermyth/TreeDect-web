@@ -35,7 +35,7 @@
         type="file" 
         ref="fileInput" 
         style="display: none;" 
-        accept="image/*" 
+        accept="image/*,.tiff,.tif" 
         @change="loadImage"
       />
       <n-button type="primary" @click="handleFileInputClick">加载图像</n-button>
@@ -50,7 +50,8 @@ import { useSegStore } from '@/stores/SegStore';
 import axios from 'axios';
 import { NButton, NDropdown } from 'naive-ui';
 import pako from 'pako';
-import { nextTick, onMounted, onUnmounted, ref, watch, h } from 'vue';
+import UTIF from 'utif2';
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { PaletteImage } from './Canva';
 
 // 如果需要访问stage和layer的引用
@@ -292,33 +293,94 @@ const loadImage = async (event) => {
       return;
     }
 
-    // 创建 FormData 对象并附加文件
-    const formData = new FormData();
-    formData.append('file', file); // 确保字段名与后端一致
-
-    // 上传图像到后端接口
-    const response = await axios.post('/load_image', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data', // 设置请求头
-      },
-    });
-
-    // 创建 FileReader 对象读取文件
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.src = e.target.result; // 将读取结果设置为图像源
-
-      // 图像加载完成后更新 imageConfig
-      img.onload = () => setImgConfig(img, imageConfig);
-    };
-
-    // 读取文件为 Data URL
-    reader.readAsDataURL(file);
+    // 检查是否为 TIFF 文件
+    const isTiff = file.name.toLowerCase().endsWith('.tiff') || file.name.toLowerCase().endsWith('.tif');
+    
+    if (isTiff) {
+      // 处理 TIFF 文件
+      await loadTiffImage(file);
+    } else {
+      // 处理普通图像文件
+      await loadRegularImage(file);
+    }
 
   } catch (error) {
     console.error('加载或上传图像失败:', error);
   }
+};
+
+// 处理普通图像文件
+const loadRegularImage = async (file) => {
+  // 创建 FormData 对象并附加文件
+  const formData = new FormData();
+  formData.append('file', file); // 确保字段名与后端一致
+
+  // 上传图像到后端接口
+  const response = await axios.post('/load_image', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data', // 设置请求头
+    },
+  });
+
+  // 创建 FileReader 对象读取文件
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.src = e.target.result; // 将读取结果设置为图像源
+
+    // 图像加载完成后更新 imageConfig
+    img.onload = () => setImgConfig(img, imageConfig);
+  };
+
+  // 读取文件为 Data URL
+  reader.readAsDataURL(file);
+};
+
+// 处理 TIFF 图像文件
+const loadTiffImage = async (file) => {
+  const arrayBuffer = await file.arrayBuffer();
+  const ifds = UTIF.decode(arrayBuffer);
+  const firstPage = ifds[0]; // 获取第一页
+  UTIF.decodeImage(arrayBuffer, firstPage); // 解码图像
+  
+  const rgba = UTIF.toRGBA8(firstPage); // 转换为 RGBA
+  const width = firstPage.width;
+  const height = firstPage.height;
+  
+  // 创建 canvas 并绘制 TIFF 图像
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  
+  // 创建 ImageData 对象
+  const imageData = new ImageData(new Uint8ClampedArray(rgba), width, height);
+  ctx.putImageData(imageData, 0, 0);
+  
+  // 将 canvas 转换为 Blob 并上传
+  canvas.toBlob(async (blob) => {
+    const jpegFile = new File([blob], 'converted.jpg', { type: 'image/jpeg' });
+    
+    // 创建 FormData 对象并附加转换后的文件
+    const formData = new FormData();
+    formData.append('file', jpegFile);
+    
+    // 上传图像到后端接口
+    try {
+      const response = await axios.post('/load_image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      // 显示转换后的图像
+      const img = new Image();
+      img.src = canvas.toDataURL('image/jpeg');
+      img.onload = () => setImgConfig(img, imageConfig);
+    } catch (error) {
+      console.error('上传转换后的图像失败:', error);
+    }
+  }, 'image/jpeg', 0.9);
 };
 
 const finishEdit = () => {

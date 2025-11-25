@@ -28,9 +28,9 @@ preprocessor = None
 extractor = None
 img = None
 
-def load_model(model_name = "facebook/sam2-hiera-large"):
+def load_model(model_name = "facebook/sam2-hiera-small"):
     global predictor
-    predictor = SAM2ImagePredictor.from_pretrained("facebook/sam2-hiera-large", local_files_only=True)
+    predictor = SAM2ImagePredictor.from_pretrained("facebook/sam2-hiera-small", local_files_only=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     predictor.model.to(device)
 
