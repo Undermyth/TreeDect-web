@@ -12,6 +12,23 @@ class PaletteImage {
             b: 0
         };
         this.segMap = {};
+        this.reverseMap = [];
+        this.reversePromise = this.getReverseMap();
+    }
+
+    async getReverseMap() {
+        for (let i = 0; i < this.height; i++) {
+            for (let j = 0; j < this.width; j++) {
+                const index = this.palette[i][j];
+                if (index !== 0) {
+                    if (!this.reverseMap[index]) {
+                        this.reverseMap[index] = {"data": [], "deleted": []};
+                    }
+                    this.reverseMap[index].data.push(i * this.width + j);
+                    this.reverseMap[index].deleted.push(false);
+                }
+            }
+        }
     }
 
     getColorMap() {

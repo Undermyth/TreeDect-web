@@ -219,8 +219,8 @@ def cluster(request: ClusterRequest):
 
     # 返回聚类结果
     return JSONResponse(content={
-        "labels": cluster_labels.tolist(),
-        "areas": areas.tolist()
+        "labels": cluster_labels.tolist(),      # List[n_segments]. each element is the cluster label to the segment
+        "areas": areas.tolist()                 # List[n_segments]. each element is the area in pixels to the segment
     })
     
 

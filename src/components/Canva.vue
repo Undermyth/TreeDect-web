@@ -61,7 +61,7 @@ const segLayer = ref(null);
 const paletteImage = ref(null);
 const segStore = useSegStore();
 const drawIndex = ref(null);
-const clusterIndexes = ref([]);
+const clusterIndexes = ref([]);   // List[n_segments]. each element is the area in pixels to the segment
 
 // 添加鼠标位置响应式变量
 const mousePosition = ref({ x: 0, y: 0 });

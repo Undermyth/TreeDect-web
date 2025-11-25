@@ -10,7 +10,7 @@ This project is sponsored by Fujian Agricultural And Forestry University.
 # Requirements
 
 - RAM > 8G
-- Nvidia GPU with VRAM >= 8G
+- Nvidia GPU with VRAM >= 8G. AMD GPU with ROCm and Pytorch will also work
 - CUDA >= 11.x
 
 # Installation
