@@ -15,7 +15,7 @@ class PaletteImage {
         this.segMap = {};
         this.reverseMap = this.getReverseMap();
         this.modifiedSegments = new Set(); // 存储手动修改过的分割区域
-        this.commonAlpha = 255;
+        this.commonAlpha = 160;
     }
 
     getReverseMap() {
@@ -231,7 +231,7 @@ class PaletteImage {
                 imageData.data[pixelIndex] = this.hoverColor.r;     // R
                 imageData.data[pixelIndex + 1] = this.hoverColor.g; // G
                 imageData.data[pixelIndex + 2] = this.hoverColor.b; // B
-                imageData.data[pixelIndex + 3] = this.commonAlpha; // A
+                imageData.data[pixelIndex + 3] = 200; // A
             }
         }
         if (render) {

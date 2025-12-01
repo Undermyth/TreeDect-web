@@ -28,6 +28,14 @@
         <v-layer ref="segLayer">
           <v-image :config="segmentationOverlayConfig" v-if="segmentationOverlayConfig.image && segStore.showMask"/>
         </v-layer>
+        <v-layer>
+          <v-text :config="{
+            x: 100,
+            y: 100,
+            text: 'Some text on canvas',
+            fontSize: 15
+          }"/>
+        </v-layer>
       </v-stage>
     </div>
     <div class="button-wrapper">
