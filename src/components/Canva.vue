@@ -386,6 +386,9 @@ const loadTiffImage = async (file) => {
 const finishEdit = () => {
   editMode.value = false;
   stageConfig.value.draggable = true;
+  if (paletteImage.value) {
+    paletteImage.value.resortModifiedSegments();
+  }
 }
 
 // 更新stage尺寸

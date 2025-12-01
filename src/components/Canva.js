@@ -12,23 +12,25 @@ class PaletteImage {
             b: 0
         };
         this.segMap = {};
-        this.reverseMap = [];
-        this.reversePromise = this.getReverseMap();
+        this.reverseMap = this.getReverseMap();
+        this.modifiedSegments = new Set(); // 存储手动修改过的分割区域
     }
 
-    async getReverseMap() {
+    getReverseMap() {
+        const reverseMap = [];
         for (let i = 0; i < this.height; i++) {
             for (let j = 0; j < this.width; j++) {
                 const index = this.palette[i][j];
                 if (index !== 0) {
-                    if (!this.reverseMap[index]) {
-                        this.reverseMap[index] = {"data": [], "deleted": []};
+                    if (!reverseMap[index]) {
+                        reverseMap[index] = {"data": [], "deleted": []};
                     }
-                    this.reverseMap[index].data.push(i * this.width + j);
-                    this.reverseMap[index].deleted.push(false);
+                    reverseMap[index].data.push(i * this.width + j);
+                    reverseMap[index].deleted.push(false);
                 }
             }
         }
+        return reverseMap;
     }
 
     getColorMap() {
@@ -120,6 +122,7 @@ class PaletteImage {
 
         // 获取该位置的索引值
         const index = this.palette[y][x];   // NOTE: 因为屏幕坐标和标准图片坐标是反过来的
+        this.reverseMap[index] = { data: [], deleted: [] };
 
         // 如果索引为0，直接返回
         if (index === 0) {
@@ -161,6 +164,7 @@ class PaletteImage {
         const g = Math.floor(Math.random() * 256);
         const b = Math.floor(Math.random() * 256);
         this.colorMap[this.numSegs] = { r: r, g: g, b: b };
+        this.reverseMap[this.numSegs] = { data: [], deleted: [] };
 
         var imageData = ctx.getImageData(0, 0, this.width, this.height);
         for (let i = 0; i < this.height; i++) {
@@ -173,6 +177,7 @@ class PaletteImage {
                         imageData.data[pixelIndex + 1] = g; // G
                         imageData.data[pixelIndex + 2] = b; // B
                         imageData.data[pixelIndex + 3] = 128; // A
+                        this.reverseMap[this.numSegs].data.push(i * this.width + j);
                     }
                 }
             }
@@ -182,19 +187,30 @@ class PaletteImage {
         layer.value.getNode().batchDraw();
     }
 
+    // clear lazy deleted manual modifications
+    resortModifiedSegments() {
+        for (const index of this.modifiedSegments) {
+            const data = this.reverseMap[index].data;
+            const deleted = this.reverseMap[index].deleted;
+            for (let i = data.length - 1; i >= 0; i--) {
+                if (deleted[i]) {
+                    data.splice(i, 1);
+                    deleted.splice(i, 1);
+                }
+            }
+        }
+        this.modifiedSegments.clear();
+    }
+
     dehighlight(ctx, layer, indexes, render = true) {
         var imageData = ctx.getImageData(0, 0, this.width, this.height);
-        for (let i = 0; i < this.height; i++) {
-            const row = this.palette[i];
-            for (let j = 0; j < this.width; j++) {
-                if (indexes.includes(row[j])) {
-                    const pixelIndex = (i * this.width + j) * 4;
-                    console.log(row[j]);
-                    imageData.data[pixelIndex] = this.colorMap[parseInt(row[j])].r;     // R
-                    imageData.data[pixelIndex + 1] = this.colorMap[parseInt(row[j])].g; // G
-                    imageData.data[pixelIndex + 2] = this.colorMap[parseInt(row[j])].b; // B
-                    imageData.data[pixelIndex + 3] = 64; // A
-                }
+        for (const index of indexes) {
+            for (const combinedIndex of this.reverseMap[index].data) {
+                const pixelIndex = combinedIndex * 4;
+                imageData.data[pixelIndex] = this.colorMap[index].r;     // R
+                imageData.data[pixelIndex + 1] = this.colorMap[index].g; // G
+                imageData.data[pixelIndex + 2] = this.colorMap[index].b; // B
+                imageData.data[pixelIndex + 3] = 64; // A
             }
         }
         if (render) {
@@ -205,17 +221,14 @@ class PaletteImage {
 
     highlight(ctx, layer, indexes, render = true) {
         var imageData = ctx.getImageData(0, 0, this.width, this.height);
-        console.log(indexes);
-        for (let i = 0; i < this.height; i++) {
-            const row = this.palette[i];
-            for (let j = 0; j < this.width; j++) {
-                if (indexes.includes(row[j])) {
-                    const pixelIndex = (i * this.width + j) * 4;
-                    imageData.data[pixelIndex] = this.hoverColor.r;     // R
-                    imageData.data[pixelIndex + 1] = this.hoverColor.g; // G
-                    imageData.data[pixelIndex + 2] = this.hoverColor.b; // B
-                    imageData.data[pixelIndex + 3] = 180; // A
-                }
+        console.log('highlighting indexes', indexes);
+        for (const index of indexes) {
+            for (const combinedIndex of this.reverseMap[index].data) {
+                const pixelIndex = combinedIndex * 4;
+                imageData.data[pixelIndex] = this.hoverColor.r;     // R
+                imageData.data[pixelIndex + 1] = this.hoverColor.g; // G
+                imageData.data[pixelIndex + 2] = this.hoverColor.b; // B
+                imageData.data[pixelIndex + 3] = 180; // A
             }
         }
         if (render) {
@@ -255,10 +268,15 @@ class PaletteImage {
                     imageData.data[pixelIndex + 1] = this.colorMap[index].g; // G
                     imageData.data[pixelIndex + 2] = this.colorMap[index].b; // B
                     imageData.data[pixelIndex + 3] = 128; // A
+                    this.reverseMap[index].data.push(i * this.width + j);
+                    this.reverseMap[index].deleted.push(false);
+                    this.modifiedSegments.add(index);
                 }
                 else if (row[j] == index && !increment) {
                     row[j] = 0;
                     imageData.data[pixelIndex + 3] = 0; // A
+                    const reverseMapIndex = this.reverseMap[index].data.indexOf(i * this.width + j);
+                    this.reverseMap[index].deleted[reverseMapIndex] = true;
                 }
             }
         }
