@@ -61,7 +61,7 @@ const segLayer = ref(null);
 const paletteImage = ref(null);
 const segStore = useSegStore();
 const drawIndex = ref(null);
-const clusterIndexes = ref([]);   // List[n_segments]. each element is the area in pixels to the segment
+const clusterIndexes = ref([]);   // List[n_segments]. each element is the cluster label to the segment, start from 0. -1 for deleted segments
 
 // 添加鼠标位置响应式变量
 const mousePosition = ref({ x: 0, y: 0 });
@@ -206,7 +206,6 @@ watch(
         indexes.push(i + 1);
       }
     }
-    console.log(clusterIndexes.value, newHighlightCluster, indexes);
     const canvas = segmentationOverlayConfig.value.image;
     const ctx = canvas.getContext('2d');
     paletteImage.value.uniqueLight(ctx, segLayer, indexes);

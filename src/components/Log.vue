@@ -46,7 +46,7 @@ watch(() => segStore.areas, (newAreas) => {
 });
 
 const onClickRow = (row) => {
-    segStore.setHighlightCluster(parseInt(row.id) + 1);
+    segStore.setHighlightCluster(parseInt(row.id));
 }
 
 </script>

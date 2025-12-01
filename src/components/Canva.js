@@ -5,6 +5,7 @@ class PaletteImage {
         this.height = this.palette.length;
         this.width = this.palette[0].length;
         this.colorMap = this.getColorMap();
+        this.clusterMap = null;     // after clustering, the colormap should be re-indexed by cluster id
         this.hoverElement = [];
         this.hoverColor = {
             r: 255,
@@ -14,6 +15,7 @@ class PaletteImage {
         this.segMap = {};
         this.reverseMap = this.getReverseMap();
         this.modifiedSegments = new Set(); // 存储手动修改过的分割区域
+        this.commonAlpha = 255;
     }
 
     getReverseMap() {
@@ -51,7 +53,7 @@ class PaletteImage {
         for (let i = 1; i <= maxIndex; i++) {
             colorMap[i] = {
                 r: Math.floor(Math.random() * 256),
-                g: Math.floor(Math.random() * 128),
+                g: Math.floor(Math.random() * 100),
                 b: Math.floor(Math.random() * 256)
             };
         }
@@ -89,7 +91,7 @@ class PaletteImage {
                     rgbData[pixelIndex] = this.colorMap[index].r;     // R
                     rgbData[pixelIndex + 1] = this.colorMap[index].g; // G
                     rgbData[pixelIndex + 2] = this.colorMap[index].b; // B
-                    rgbData[pixelIndex + 3] = 128;               // A (半透明)
+                    rgbData[pixelIndex + 3] = this.commonAlpha;               // A (半透明)
 
                     // if (!(index in this.segMap)) {
                     //     this.segMap[index] = { x: [], y: [] };
@@ -176,7 +178,7 @@ class PaletteImage {
                         imageData.data[pixelIndex] = r;     // R
                         imageData.data[pixelIndex + 1] = g; // G
                         imageData.data[pixelIndex + 2] = b; // B
-                        imageData.data[pixelIndex + 3] = 128; // A
+                        imageData.data[pixelIndex + 3] = this.commonAlpha; // A
                         this.reverseMap[this.numSegs].data.push(i * this.width + j);
                     }
                 }
@@ -205,12 +207,13 @@ class PaletteImage {
     dehighlight(ctx, layer, indexes, render = true) {
         var imageData = ctx.getImageData(0, 0, this.width, this.height);
         for (const index of indexes) {
+            const clusterIndex = this.clusterMap[index - 1] + 1;
             for (const combinedIndex of this.reverseMap[index].data) {
                 const pixelIndex = combinedIndex * 4;
-                imageData.data[pixelIndex] = this.colorMap[index].r;     // R
-                imageData.data[pixelIndex + 1] = this.colorMap[index].g; // G
-                imageData.data[pixelIndex + 2] = this.colorMap[index].b; // B
-                imageData.data[pixelIndex + 3] = 64; // A
+                imageData.data[pixelIndex] = this.colorMap[clusterIndex].r;     // R
+                imageData.data[pixelIndex + 1] = this.colorMap[clusterIndex].g; // G
+                imageData.data[pixelIndex + 2] = this.colorMap[clusterIndex].b; // B
+                imageData.data[pixelIndex + 3] = this.commonAlpha; // A
             }
         }
         if (render) {
@@ -220,15 +223,15 @@ class PaletteImage {
     }
 
     highlight(ctx, layer, indexes, render = true) {
+        // console.log('highlighting indexes', indexes);
         var imageData = ctx.getImageData(0, 0, this.width, this.height);
-        console.log('highlighting indexes', indexes);
         for (const index of indexes) {
             for (const combinedIndex of this.reverseMap[index].data) {
                 const pixelIndex = combinedIndex * 4;
                 imageData.data[pixelIndex] = this.hoverColor.r;     // R
                 imageData.data[pixelIndex + 1] = this.hoverColor.g; // G
                 imageData.data[pixelIndex + 2] = this.hoverColor.b; // B
-                imageData.data[pixelIndex + 3] = 180; // A
+                imageData.data[pixelIndex + 3] = this.commonAlpha; // A
             }
         }
         if (render) {
@@ -267,7 +270,7 @@ class PaletteImage {
                     imageData.data[pixelIndex] = this.colorMap[index].r;     // R
                     imageData.data[pixelIndex + 1] = this.colorMap[index].g; // G
                     imageData.data[pixelIndex + 2] = this.colorMap[index].b; // B
-                    imageData.data[pixelIndex + 3] = 128; // A
+                    imageData.data[pixelIndex + 3] = this.commonAlpha; // A
                     this.reverseMap[index].data.push(i * this.width + j);
                     this.reverseMap[index].deleted.push(false);
                     this.modifiedSegments.add(index);
@@ -285,6 +288,7 @@ class PaletteImage {
     }
 
     cluster(ctx, layer, clusterMap) {
+        this.clusterMap = clusterMap;
         var imageData = ctx.getImageData(0, 0, this.width, this.height);
         for (let i = 0; i < this.height; i++) {
             const row = this.palette[i];
@@ -298,7 +302,7 @@ class PaletteImage {
                     imageData.data[pixelIndex] = this.colorMap[clusterIndex].r;     // R
                     imageData.data[pixelIndex + 1] = this.colorMap[clusterIndex].g; // G
                     imageData.data[pixelIndex + 2] = this.colorMap[clusterIndex].b; // B
-                    imageData.data[pixelIndex + 3] = 128; // A
+                    imageData.data[pixelIndex + 3] = this.commonAlpha; // A
                 }
             }
         }
