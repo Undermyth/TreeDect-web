@@ -4,6 +4,7 @@ export const useSegStore = defineStore('seg', {
     state: () => ({
         palette: [],
         showMask: true,
+        showIndex: true,
         k: 6,
         colorMap: null,
         areas: [],

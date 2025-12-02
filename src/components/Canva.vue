@@ -28,13 +28,16 @@
         <v-layer ref="segLayer">
           <v-image :config="segmentationOverlayConfig" v-if="segmentationOverlayConfig.image && segStore.showMask"/>
         </v-layer>
-        <v-layer>
-          <v-text :config="{
-            x: 100,
-            y: 100,
-            text: 'Some text on canvas',
-            fontSize: 15
-          }"/>
+        <v-layer v-if="segStore.showIndex">
+          <v-for v-for="index in indexArray" :key="index.index">
+            <v-text :config="{
+              x: index.y * scaling + x_shift - 5,
+              y: index.x * scaling + y_shift - 5,
+              text: index.index,
+              fontSize: 18,
+              fill: 'white'
+            }"/>
+          </v-for>
         </v-layer>
       </v-stage>
     </div>
@@ -61,6 +64,7 @@ import pako from 'pako';
 import UTIF from 'utif2';
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { PaletteImage } from './Canva';
+import { updateIndexArray } from './Index';
 
 // 如果需要访问stage和layer的引用
 const stage = ref(null);
@@ -80,6 +84,10 @@ const editMode = ref(false);
 const increment = ref(true);
 const mouseDown = ref(false);
 const inCluster = ref(false);
+
+const scaling = ref(1);   // relative scaling between stage and canvas
+const x_shift = ref(0);   // relative shift between stage and canvas
+const y_shift = ref(0);
 
 const stageConfig = ref({
     x: 0,
@@ -125,7 +133,9 @@ const menuOptions = [
     label: '调整（删减）',
     key: 'decrement'
   }
-]
+];
+
+const indexArray = ref([]);
 
 // ---------------------------------------------------------------
 // util functions
@@ -137,12 +147,15 @@ const setImgConfig = (canvas, imgConfig) => {
   
   // 修复：使用正确的图像变量segImg而不是img
   const scale = Math.min(stageWidth / canvas.width, stageHeight / canvas.height);
+  scaling.value = scale;
   const scaledWidth = canvas.width * scale;
   const scaledHeight = canvas.height * scale;
   
   imgConfig.value.image = canvas;
   imgConfig.value.x = (stageWidth - scaledWidth) / 2;
   imgConfig.value.y = (stageHeight - scaledHeight) / 2;
+  x_shift.value = (stageWidth - scaledWidth) / 2;
+  y_shift.value = (stageHeight - scaledHeight) / 2;
   imgConfig.value.width = scaledWidth;
   imgConfig.value.height = scaledHeight;
 }
@@ -446,6 +459,7 @@ const handleCluster = async () => {
     const ctx = canvas.getContext('2d');
     paletteImage.value.cluster(ctx, segLayer, clusterMap);
     clusterIndexes.value = clusterMap;
+    updateIndexArray(indexArray.value, clusterMap, response.data.position_x, response.data.position_y);
     segStore.setColorMap(paletteImage.value.getHexColor());
     segStore.setAreas(response.data.areas);
   } catch (error) {

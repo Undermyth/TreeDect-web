@@ -7,6 +7,7 @@
       <n-input-number v-model:value="segStore.k" placeholder="聚类数" />
       <n-button type="primary" @click="generateSegmentation" :loading="loading">{{ progress }}</n-button>
       <n-switch v-model:value="segStore.showMask" />
+      <n-switch v-model:value="segStore.showIndex" />
     </n-space>
   </div>
 </template>

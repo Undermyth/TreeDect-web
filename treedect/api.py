@@ -217,10 +217,14 @@ def cluster(request: ClusterRequest):
         if label != -1:
             areas[label] += area
 
+    position_x = np.round((dataset.bbox_top + dataset.bbox_bottom) / 2)
+    position_y = np.round((dataset.bbox_left + dataset.bbox_right) / 2)
     # 返回聚类结果
     return JSONResponse(content={
         "labels": cluster_labels.tolist(),      # List[n_segments]. each element is the cluster label to the segment, start from 0, -1 for deleted segments
-        "areas": areas.tolist()                 # List[n_segments]. each element is the area in pixels to the segment
+        "areas": areas.tolist(),                # List[n_clusters]. each element is the area in pixels to the cluster
+        "position_x": position_x.tolist(),
+        "position_y": position_y.tolist(),
     })
     
 

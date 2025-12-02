@@ -18,6 +18,7 @@ class PaletteImage {
         this.commonAlpha = 160;
     }
 
+    // get reverse indexing for accelerated highlighting. used in constructor and maintained during modification
     getReverseMap() {
         const reverseMap = [];
         for (let i = 0; i < this.height; i++) {
@@ -35,6 +36,7 @@ class PaletteImage {
         return reverseMap;
     }
 
+    // create random color mapping. used in constructor
     getColorMap() {
         // 生成颜色映射表
         const colorMap = {};
@@ -60,6 +62,7 @@ class PaletteImage {
         return colorMap;
     }
 
+    // util function to convert color map to hex color map for html rendering
     getHexColor() {
         const hexColorMap = {};
         for (let i = 1; i <= this.numSegs; i++) {
@@ -72,6 +75,7 @@ class PaletteImage {
         return hexColorMap;
     }
 
+    // create RGB array from palette and colormap. used in rendering
     createRGBFromPalette() {
         if (!this.palette || this.palette.length === 0) return null;
 
@@ -115,6 +119,7 @@ class PaletteImage {
         return this.palette[y][x];
     }
 
+    // delete a segment at cursor position (x, y), and rerender. also maintains reverse map
     delete(ctx, layer, x, y) {
         console.log('deletion activated at ', y, x);
         // 检查坐标是否有效
@@ -158,6 +163,7 @@ class PaletteImage {
         console.timeEnd('rerender-image-data');
     }
 
+    // add a new segment according to mask, and rerender. also maintains reverse map
     update(ctx, layer, mask, invasive = false) {
         console.log('update activated for ', this.numSegs);
 
@@ -204,6 +210,7 @@ class PaletteImage {
         this.modifiedSegments.clear();
     }
 
+    // restore the color of the previous highlight region
     dehighlight(ctx, layer, indexes, render = true) {
         var imageData = ctx.getImageData(0, 0, this.width, this.height);
         for (const index of indexes) {
@@ -222,6 +229,7 @@ class PaletteImage {
         }
     }
 
+    // highlight the segment at indexes
     highlight(ctx, layer, indexes, render = true) {
         // console.log('highlighting indexes', indexes);
         var imageData = ctx.getImageData(0, 0, this.width, this.height);
@@ -240,6 +248,7 @@ class PaletteImage {
         }
     }
 
+    // highlight the segment at indexes, and dehighlight the previous highlight region
     uniqueLight(ctx, layer, indexes) {
 
         // restore the color of the previous hover region
@@ -252,6 +261,7 @@ class PaletteImage {
         this.highlight(ctx, layer, indexes);
     }
 
+    // increase or decrease the segment at index by radius. used for interactive modification
     modify(ctx, layer, index, x, y, increment = true, radius = 5, invasive = false) {
         var imageData = ctx.getImageData(0, 0, this.width, this.height);
 
@@ -287,6 +297,7 @@ class PaletteImage {
         layer.value.getNode().batchDraw();
     }
 
+    // reindexing the colors of the segments according to clusterMap, and rerender
     cluster(ctx, layer, clusterMap) {
         this.clusterMap = clusterMap;
         var imageData = ctx.getImageData(0, 0, this.width, this.height);
@@ -310,6 +321,7 @@ class PaletteImage {
         layer.value.getNode().batchDraw();
     }
 
+    // render the image with the current palette
     fullRender(ctx, layer) {
         const rgbData = this.createRGBFromPalette();
         var imageData = ctx.createImageData(this.width, this.height);
