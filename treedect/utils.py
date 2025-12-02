@@ -88,3 +88,20 @@ def masks_to_palette(masks: List[np.ndarray], height: int, width: int) -> np.nda
         palette = palette + i * (mask & palette_mask)
     
     return palette.astype(np.int32)
+
+def create_block_mask_in_bbox(bbox_top, bbox_bottom, bbox_left, bbox_right, palette, index, n_patch):
+    '''
+    the bounding box of a segment (marked by index on palette) is divided into n_patch x n_patch blocks.
+    this function found the patch that really contains the segment, and return in raster scan order.
+    actually bbox_* is not computationally necessary, but it has already been computed in the previous step.
+    '''
+    valid_blocks = set()
+    patch_width = (bbox_right - bbox_left) / n_patch
+    patch_height = (bbox_bottom - bbox_top) / n_patch
+    for x in range(bbox_left, bbox_right):
+        for y in range(bbox_top, bbox_bottom):
+            if palette[x, y] == index:
+                block_x = (x - bbox_top) // patch_height
+                block_y = (y - bbox_left) // patch_width
+                valid_blocks.add(block_x * n_patch + block_y)
+    return sorted(list(valid_blocks))
