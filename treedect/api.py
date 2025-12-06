@@ -19,6 +19,9 @@ from sklearn.cluster import KMeans
 from utils import *
 from feature import FeatureExtractionDataset
 import time
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler, normalize
+import umap
 
 # ------------------------------------------------------------
 # global states
@@ -189,7 +192,7 @@ def cluster(request: ClusterRequest):
             for block_index in block_mask:
                 valid_patchs.append(patch_states[block_index])
             cls_token = torch.stack(valid_patchs, dim=0).mean(dim=0)
-            cls_tokens.append(cls_token)
+            cls_tokens.append(cls_token.numpy())
     
     end_time = time.time()
     logging.info(f"Feature extraction took {end_time - start_time:.2f} seconds")
@@ -199,11 +202,28 @@ def cluster(request: ClusterRequest):
     indexes = []
     for i, (valid, cls_token) in enumerate(zip(dataset.valid, cls_tokens)):
         if valid:
-            features.append(cls_token)
+            features.append((cls_token, dataset.mean_color[i], dataset.std_color[i], dataset.area[i]))
             indexes.append(i)
-    
-    # 将特征向量转换为numpy数组用于聚类
-    features = torch.stack(features).cpu().numpy()
+
+    # PCA on texture features from DINOv2
+    # [VARI] does it need normalization?
+    texture_features = np.stack([feature[0] for feature in features], axis=0)
+    pca = PCA(n_components=7)
+    texture_features = pca.fit_transform(texture_features)
+    texture_features = normalize(texture_features, norm='l2')
+
+    # manual features
+    manual_features = np.stack([np.concat([feature[1], feature[2], np.array([feature[3]])], axis=-1) for feature in features], axis=0)
+    features = np.concat([texture_features, manual_features], axis=-1)
+
+    # normalization & UMAP
+    scaler = StandardScaler()
+    features = scaler.fit_transform(features)
+    reducer = umap.UMAP(n_neighbors=30, min_dist=0.0, n_components=3, random_state=42)
+    features = reducer.fit_transform(features)
+
+    # # 将特征向量转换为numpy数组用于聚类
+    # features = torch.stack(features).cpu().numpy()
     
     # 执行K-means聚类
     start_time = time.time()

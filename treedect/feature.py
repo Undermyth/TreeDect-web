@@ -27,6 +27,9 @@ class FeatureExtractionDataset(Dataset):
 
         self.valid = [1 for _ in range(self.num_segs)]
 
+        self.mean_color = [np.array([0, 0, 0], dtype=np.float32) for _ in range(self.num_segs)]
+        self.std_color = [np.array([0, 0, 0], dtype=np.float32) for _ in range(self.num_segs)]
+
         self._generate_dataset()
 
         self._visualization()
@@ -46,9 +49,14 @@ class FeatureExtractionDataset(Dataset):
                     self.right[index] = max(self.right[index], j)
                     self.bottom[index] = max(self.bottom[index], i)
                     self.area[index] += 1
+                    color = self.image[i, j, :]     # welford's algorithm
+                    delta = color - self.mean_color[index]
+                    self.mean_color[index] += delta / self.area[index]
+                    self.std_color[index] += delta * (color - self.mean_color[index])
 
         for i in range(self.num_segs):
-            if self.left[i] == float('inf'):
+            self.std_color[i] /= (self.area[i] - 1)
+            if self.left[i] == float('inf'):    # invalid segment (deleted during edition)
                 self.left[i] = 0
                 self.top[i] = 0
                 self.right[i] = 10
