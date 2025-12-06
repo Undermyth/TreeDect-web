@@ -183,7 +183,12 @@ def cluster(request: ClusterRequest):
         )
         with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
             outputs = extractor(**inputs)
-        for cls_token in outputs[1]:
+        for hidden_state, block_mask in zip(outputs.last_hidden_state, batch['block_mask']):  # iteration over samples in batch
+            patch_states = hidden_state[1:]
+            valid_patchs = []
+            for block_index in block_mask:
+                valid_patchs.append(patch_states[block_index])
+            cls_token = torch.stack(valid_patchs, dim=0).mean(dim=0)
             cls_tokens.append(cls_token)
     
     end_time = time.time()
