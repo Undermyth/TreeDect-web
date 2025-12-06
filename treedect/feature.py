@@ -1,7 +1,10 @@
+# %%
 import torch
 import numpy as np
 from torch.utils.data import Dataset
 import cv2
+
+from utils import create_block_mask_in_bbox
 
 class FeatureExtractionDataset(Dataset):
     def __init__(self, palette: np.ndarray, image, n_patch, segment_ratio = 4):
@@ -25,9 +28,12 @@ class FeatureExtractionDataset(Dataset):
         self.valid = [1 for _ in range(self.num_segs)]
 
         self._generate_dataset()
-        self._generate_selection()
 
         self._visualization()
+
+        # import pickle
+        # pickle.dump(self.palette, open("palette.pkl", "wb"))
+        # pickle.dump(self.image, open("image.pkl", "wb"))
 
     def _generate_dataset(self):
 
@@ -59,41 +65,6 @@ class FeatureExtractionDataset(Dataset):
         self.bbox_right = self.right
         self.bbox_bottom = self.bottom
 
-        # center_h = (self.top + self.bottom) / 2
-        # center_w = (self.left + self.right) / 2
-
-        # seg_width = self.width / self.segment_ratio
-        # seg_height = self.height / self.segment_ratio
-
-        # bbox_left = np.round(center_w) - seg_width / 2
-        # bbox_top = np.round(center_h) - seg_height / 2
-        # bbox_right = np.round(center_w) + seg_width / 2
-        # bbox_bottom = np.round(center_h) + seg_height / 2
-
-        # # print(center_h, center_w)
-        # # print(bbox_left, bbox_top, bbox_right, bbox_bottom)
-
-        # mask = bbox_left < 0
-        # bbox_right = bbox_right + mask * (0 - bbox_left)
-        # bbox_left = bbox_left + mask * (0 - bbox_left)
-
-        # mask = bbox_top < 0
-        # bbox_bottom = bbox_bottom + mask * (0 - bbox_top)
-        # bbox_top = bbox_top + mask * (0 - bbox_top)
-
-        # mask = bbox_right > self.width
-        # bbox_left = bbox_left - mask * (bbox_right - self.width)
-        # bbox_right = bbox_right - mask * (bbox_right - self.width)
-
-        # mask = bbox_bottom > self.height
-        # bbox_top = bbox_top - mask * (bbox_bottom - self.height)
-        # bbox_bottom = bbox_bottom - mask * (bbox_bottom - self.height)
-
-        # self.bbox_left = bbox_left
-        # self.bbox_right = bbox_right
-        # self.bbox_top = bbox_top
-        # self.bbox_bottom = bbox_bottom
-
     def _visualization(self):
         vis_image = self.image.copy()
         colors = [(0, 255, 0), (255, 0, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
@@ -106,22 +77,15 @@ class FeatureExtractionDataset(Dataset):
             cv2.rectangle(vis_image, (x1, y1), (x2, y2), color, 2)
         cv2.imwrite('visualization.png', vis_image)
 
-    def _generate_selection(self):
-
-        width = self.bbox_right - self.bbox_left
-        height = self.bbox_bottom - self.bbox_top
-        patch_width = width / self.n_patch
-        patch_height = height / self.n_patch
-
-        self.mask_start_width = np.floor((self.left - self.bbox_left) / patch_width)
-        self.mask_start_height = np.floor((self.top - self.bbox_top) / patch_height)
-        self.mask_end_width = np.ceil((self.right - self.bbox_left) / patch_width)
-        self.mask_end_height = np.ceil((self.bottom - self.bbox_top) / patch_height)
-
     def __getitem__(self, index):
+        bbox = self.image[int(self.bbox_top[index]):int(self.bbox_bottom[index]) + 1, int(self.bbox_left[index]):int(self.bbox_right[index]) + 1, :]
+        cutted_palette = self.palette[int(self.bbox_top[index]):int(self.bbox_bottom[index]) + 1, int(self.bbox_left[index]):int(self.bbox_right[index]) + 1]
+        mask = (cutted_palette != index + 1).astype(np.bool)
+        bbox[mask] = np.array([0, 0, 0], dtype=np.uint8)
+        block_mask = create_block_mask_in_bbox(self.bbox_top[index], self.bbox_bottom[index], self.bbox_left[index], self.bbox_right[index], self.palette, index + 1, self.n_patch)
         return {
-            "data": self.image[int(self.bbox_top[index]):int(self.bbox_bottom[index]), int(self.bbox_left[index]):int(self.bbox_right[index]), :],
-            "mask": np.array([self.mask_start_height[index], self.mask_start_width[index], self.mask_end_height[index], self.mask_end_width[index]])
+            "data": bbox,
+            "block_mask": np.array(block_mask, dtype=np.int32)
         }
 
     def __len__(self):
@@ -131,22 +95,19 @@ class FeatureExtractionDataset(Dataset):
     def collate_fn(batch):
         return {
             "data": [sample["data"] for sample in batch],
-            "mask": np.stack([sample["mask"] for sample in batch], axis=0)
+            "block_mask": [sample["block_mask"] for sample in batch]
         }
 
-
-
+# %%
 if __name__ == '__main__':
-    circle = np.array([
-        [0, 0, 1, 1, 1, 0],
-        [0, 0, 1, 1, 2, 3],
-        [0, 1, 1, 2, 2, 2],
-        [0, 0, 1, 1, 2, 2],
-        [4, 4, 4, 0, 0, 2],
-        [4, 0, 4, 0, 0, 0]
-    ])
-    img = np.zeros((12, 12))
-    img[6:6+circle.shape[0], 6:6+circle.shape[1]] += circle
-    print(img)
-    dataset = FeatureExtractionDataset(img, None, 2)
-    print(dataset.left, dataset.top, dataset.right, dataset.bottom)
+    import pickle
+    import cv2
+    import matplotlib.pyplot as plt
+    # np.set_printoptions(threshold=10000)
+    image = pickle.load(open("image.pkl", "rb"))
+    palette = pickle.load(open("palette.pkl", "rb"))
+    dataset = FeatureExtractionDataset(palette, image, 2)
+    img = dataset[70]['data']
+    plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+    plt.show()
+# %%
