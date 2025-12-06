@@ -1,6 +1,7 @@
 import numpy as np
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 from typing import List, Tuple
+import numba
 
 def generation_sample_grid(height: int, width: int, ROW_SAMPLE_INTERVAL: int, COL_SAMPLE_INTERVAL: int):
     """
@@ -95,13 +96,74 @@ def create_block_mask_in_bbox(bbox_top, bbox_bottom, bbox_left, bbox_right, pale
     this function found the patch that really contains the segment, and return in raster scan order.
     actually bbox_* is not computationally necessary, but it has already been computed in the previous step.
     '''
+    # synthetic sanity check passed
     valid_blocks = set()
-    patch_width = (bbox_right - bbox_left) / n_patch
-    patch_height = (bbox_bottom - bbox_top) / n_patch
-    for x in range(bbox_left, bbox_right):
-        for y in range(bbox_top, bbox_bottom):
+    patch_width = (bbox_right - bbox_left + 1) / n_patch
+    patch_height = (bbox_bottom - bbox_top + 1) / n_patch
+    for x in range(bbox_top, bbox_bottom + 1):
+        for y in range(bbox_left, bbox_right + 1):
             if palette[x, y] == index:
                 block_x = (x - bbox_top) // patch_height
                 block_y = (y - bbox_left) // patch_width
-                valid_blocks.add(block_x * n_patch + block_y)
+                valid_blocks.add(int(block_x * n_patch + block_y))
     return sorted(list(valid_blocks))
+
+@numba.jit(nopython=True)
+def create_block_mask_in_global(bbox_top, bbox_bottom, bbox_left, bbox_right, palette, index, n_patch):
+    '''
+    the whole palette is divided into n_patch x n_patch blocks.
+    this function found the patch that really contains the segment, and return in raster scan order.
+    actually bbox_* is not computationally necessary, but it has already been computed in the previous step.
+    '''
+    patch_height = palette.shape[1] // n_patch
+    patch_width = palette.shape[0] // n_patch
+    patch_idx_start = bbox_top // patch_height
+    patch_idx_end = bbox_bottom // patch_height
+    patch_idy_start = bbox_left // patch_width
+    patch_idy_end = bbox_right // patch_width
+    valid_blocks = set()
+    
+    # fast checking. many cases should fall into this condition, which does not need extra computation
+    if patch_idx_start == patch_idx_end and patch_idy_start == patch_idy_end:
+        return [patch_idx_start * n_patch + patch_idy_start]
+
+    for patch_idx in range(patch_idx_start, patch_idx_end + 1):
+        for patch_idy in range(patch_idy_start, patch_idy_end + 1):
+            # scan the bounding box for evidence
+            for x in range(bbox_top, bbox_bottom + 1):
+                for y in range(bbox_left, bbox_right + 1):
+                    if palette[x, y] == index:
+                        block_x = x // patch_height
+                        block_y = y // patch_width
+                        if block_x == patch_idx and block_y == patch_idy:
+                            valid_blocks.add(int(block_x * n_patch + block_y))
+                            break
+    
+    return sorted(list(valid_blocks))
+
+if __name__ == '__main__':
+    palette = np.array([
+        [0, 0, 1, 1, 1, 0],
+        [0, 0, 1, 1, 2, 3],
+        [0, 1, 2, 2, 2, 2],
+        [0, 0, 1, 3, 2, 2],
+        [4, 4, 4, 0, 0, 2],
+        [4, 0, 4, 0, 0, 0]
+    ])
+
+    # bbox_left = 2
+    # bbox_right = 5
+    # bbox_top = 1
+    # bbox_bottom = 4
+    # n_patch = 2
+    # index = 2
+
+    bbox_left = 1
+    bbox_right = 4
+    bbox_top = 0
+    bbox_bottom = 3
+    n_patch = 3
+    index = 1
+
+    # print(create_block_mask_in_bbox(bbox_top, bbox_bottom, bbox_left, bbox_right, palette, index, n_patch))
+    print(create_block_mask_in_global(bbox_top, bbox_bottom, bbox_left, bbox_right, palette, index, n_patch))
