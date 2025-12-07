@@ -71,6 +71,7 @@
       <n-button type="primary" @click="handleFileInputClick">加载图像</n-button>
       <n-button type="primary" @click="handleCluster" :loading="inCluster">无监督分类</n-button>
       <n-button type="primary" @click="finishEdit" :disabled="!editMode">完成编辑</n-button>
+      <n-button type="primary" @click="exportCanvas" :disabled="!imageConfig.image">导出图片</n-button>
     </div>
   </div>
 </template>
@@ -600,6 +601,53 @@ const handleChangeLabel = () => {
   const highlighted = (segStore.highlightCluster == newLabel.value);
   paletteImage.value.updateClusterIndex(ctx, segLayer, mousePosition.value.x, mousePosition.value.y, newLabel.value, highlighted);
   showModal.value = false;
+}
+
+const exportCanvas = () => {
+  if (!imageConfig.value.image) {
+    return;
+  }
+  
+  // 创建一个新的canvas用于导出
+  const exportCanvas = document.createElement('canvas');
+  const originalWidth = imageConfig.value.image.width;
+  const originalHeight = imageConfig.value.image.height;
+  exportCanvas.width = originalWidth;
+  exportCanvas.height = originalHeight;
+  const ctx = exportCanvas.getContext('2d');
+  
+  // 绘制原始图像
+  ctx.drawImage(imageConfig.value.image, 0, 0);
+  
+  // 如果显示分割遮罩，则绘制分割图层
+  if (segStore.showMask && segmentationOverlayConfig.value.image) {
+    ctx.globalAlpha = segmentationOverlayConfig.value.opacity || 1;
+    ctx.drawImage(segmentationOverlayConfig.value.image, 0, 0);
+    ctx.globalAlpha = 1;
+  }
+  
+  // 如果显示索引，则绘制索引文本
+  if (segStore.showIndex) {
+    ctx.font = '18px Arial';
+    ctx.fillStyle = 'white';
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 2;
+    indexArray.value.forEach(index => {
+      if (index.index !== -1) {
+        ctx.strokeText(index.index.toString(), index.y, index.x);
+        ctx.fillText(index.index.toString(), index.y, index.x);
+      }
+    });
+  }
+  
+  // 导出为图片文件
+  exportCanvas.toBlob((blob) => {
+    const link = document.createElement('a');
+    link.download = 'canvas-export.png';
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }, 'image/png');
 }
 
 // 监听窗口大小变化
