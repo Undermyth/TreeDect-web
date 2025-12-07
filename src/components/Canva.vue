@@ -1,6 +1,25 @@
 <template>
   <div class="canvas-container">
     <div class="stage-wrapper" @contextmenu="handleRightClick">
+      <n-modal v-model:show="showModal" :mask-closable="false">
+        <n-card
+          style="width: 400px"
+          title="类别更改"
+          :bordered="false"
+          size="huge"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div>输入新的类别标签：</div>
+            <n-input-number v-model:value="newLabel" clearable />
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+              <n-button @click="showModal = false">取消</n-button>
+              <n-button type="primary" @click="handleChangeLabel">确定</n-button>
+            </div>
+          </div>
+        </n-card>
+      </n-modal>
       <n-dropdown
         placement="bottom-start"
         trigger="manual"
@@ -29,15 +48,15 @@
           <v-image :config="segmentationOverlayConfig" v-if="segmentationOverlayConfig.image && segStore.showMask"/>
         </v-layer>
         <v-layer v-if="segStore.showIndex">
-          <v-for v-for="index in indexArray" :key="index.index">
-            <v-text :config="{
+          <template v-for="index in indexArray">
+            <v-text v-if="index.index != -1" :config="{
               x: index.y * scaling + x_shift - 5,
               y: index.x * scaling + y_shift - 5,
               text: index.index,
               fontSize: 18,
               fill: 'white'
             }"/>
-          </v-for>
+          </template>
         </v-layer>
       </v-stage>
     </div>
@@ -59,12 +78,12 @@
 <script setup>
 import { useSegStore } from '@/stores/SegStore';
 import axios from 'axios';
-import { NButton, NDropdown } from 'naive-ui';
+import { NButton, NCard, NDropdown, NInputNumber, NModal } from 'naive-ui';
 import pako from 'pako';
 import UTIF from 'utif2';
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { PaletteImage } from './Canva';
-import { updateIndexArray } from './Index';
+import { updateIndex, updateIndexArray } from './Index';
 
 // 如果需要访问stage和layer的引用
 const stage = ref(null);
@@ -83,7 +102,10 @@ const menuY = ref(0)
 const editMode = ref(false);
 const increment = ref(true);
 const mouseDown = ref(false);
-const inCluster = ref(false);
+const inCluster = ref(false);   // using for loading animation in clustering
+const clustered = ref(false);   // flag for done clustering
+const showModal = ref(false);
+const newLabel = ref(0);
 
 const scaling = ref(1);   // relative scaling between stage and canvas
 const x_shift = ref(0);   // relative shift between stage and canvas
@@ -116,24 +138,33 @@ const segmentationOverlayConfig = ref({
   opacity: 1
 });
 
-const menuOptions = [
+const menuOptions = computed(() => [
   {
     label: '删除',
-    key: 'delete'
+    key: 'delete',
+    disabled: clustered.value
   },
   {
     label: '重新识别',
-    key: 'segment'
+    key: 'segment',
+    disabled: clustered.value
   },
   {
     label: '调整（增加）',
-    key: 'increment'
+    key: 'increment',
+    disabled: clustered.value
   },
   {
     label: '调整（删减）',
-    key: 'decrement'
+    key: 'decrement',
+    disabled: clustered.value
+  },
+  {
+    label: '调整类别',
+    key: 'classify',
+    disabled: !clustered.value
   }
-];
+]);
 
 const indexArray = ref([]);
 
@@ -466,6 +497,7 @@ const handleCluster = async () => {
     console.error('聚类时出现错误:', error);
   } finally {
     inCluster.value = false;
+    clustered.value = true;
   }
 }
 
@@ -532,8 +564,21 @@ const handleSelect = async (key) => {
     drawIndex.value = index;
     stageConfig.value.draggable = false;
   }
+  else if (key === 'classify') {
+    showModal.value = true;
+  }
 
   showDropdown.value = false;
+}
+
+const handleChangeLabel = () => {
+  const index = paletteImage.value.getIndex(mousePosition.value.x, mousePosition.value.y) - 1;
+  updateIndex(indexArray.value, index, newLabel.value);
+  const canvas = segmentationOverlayConfig.value.image;
+  const ctx = canvas.getContext('2d');
+  const highlighted = (segStore.highlightCluster == newLabel.value);
+  paletteImage.value.updateClusterIndex(ctx, segLayer, mousePosition.value.x, mousePosition.value.y, newLabel.value, highlighted);
+  showModal.value = false;
 }
 
 // 监听窗口大小变化

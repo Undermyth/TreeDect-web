@@ -321,6 +321,19 @@ class PaletteImage {
         layer.value.getNode().batchDraw();
     }
 
+    // update cluster index
+    updateClusterIndex(ctx, layer, x, y, clusterIndex, highlighted) {
+        const index = this.getIndex(x, y);
+        this.clusterMap[index - 1] = clusterIndex;
+        if (highlighted) {
+            this.hoverElement.push(index);
+            this.highlight(ctx, layer, [index]);
+        }
+        else {
+            this.dehighlight(ctx, layer, [index]);
+        }
+    }
+
     // render the image with the current palette
     fullRender(ctx, layer) {
         const rgbData = this.createRGBFromPalette();

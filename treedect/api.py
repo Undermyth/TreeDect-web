@@ -221,7 +221,7 @@ def cluster(request: ClusterRequest):
     # normalization & UMAP
     scaler = StandardScaler()
     features = scaler.fit_transform(features)
-    reducer = umap.UMAP(n_neighbors=30, min_dist=0.0, n_components=3, random_state=42)
+    reducer = umap.UMAP(n_neighbors=30, min_dist=0.0, n_components=3)
     features = reducer.fit_transform(features)
 
     # # 将特征向量转换为numpy数组用于聚类

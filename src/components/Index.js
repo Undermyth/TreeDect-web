@@ -12,4 +12,8 @@ function updateIndexArray(indexArray, labels, position_x, position_y) {
     }
 }
 
-export { IndexObject, updateIndexArray };
+function updateIndex(indexArray, index, label) {
+    indexArray[index].index = label;
+}
+
+export { IndexObject, updateIndexArray, updateIndex };
