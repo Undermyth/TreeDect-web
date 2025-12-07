@@ -4,7 +4,7 @@ import numpy as np
 from torch.utils.data import Dataset
 import cv2
 
-from utils import create_block_mask_in_bbox
+from utils import create_block_mask_in_bbox, create_block_mask_in_global
 
 class FeatureExtractionDataset(Dataset):
     def __init__(self, palette: np.ndarray, image, n_patch, seg_ratio = 2):
@@ -73,7 +73,7 @@ class FeatureExtractionDataset(Dataset):
         self.bbox_bottom = self.bottom
 
         for i in range(self.num_segs):
-            self.block_count[i] = len(create_block_mask_in_bbox(self.bbox_top[i], self.bbox_bottom[i], self.bbox_left[i], self.bbox_right[i], self.palette, i + 1, self.seg_ratio))
+            self.block_count[i] = create_block_mask_in_global(self.bbox_top[i], self.bbox_bottom[i], self.bbox_left[i], self.bbox_right[i], self.palette, i + 1, self.seg_ratio)
 
     def _visualization(self):
         vis_image = self.image.copy()

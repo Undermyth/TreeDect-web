@@ -171,7 +171,7 @@ def cluster(request: ClusterRequest):
     # 将传入的二维列表转换为numpy数组
     palette = np.array(request.palette, dtype=np.int32)
     n_patch = 224 / extractor.config.patch_size
-    dataset = FeatureExtractionDataset(palette, img, n_patch)
+    dataset = FeatureExtractionDataset(palette, img, request.seg_ratio)
     loader = DataLoader(dataset, batch_size=128, shuffle=False, collate_fn=FeatureExtractionDataset.collate_fn)
     
     start_time = time.time()

@@ -121,25 +121,30 @@ def create_block_mask_in_global(bbox_top, bbox_bottom, bbox_left, bbox_right, pa
     patch_idx_end = bbox_bottom // patch_height
     patch_idy_start = bbox_left // patch_width
     patch_idy_end = bbox_right // patch_width
-    valid_blocks = set()
     
     # fast checking. many cases should fall into this condition, which does not need extra computation
     if patch_idx_start == patch_idx_end and patch_idy_start == patch_idy_end:
-        return [patch_idx_start * n_patch + patch_idy_start]
+        return 1
+
+    block_count = 0
 
     for patch_idx in range(patch_idx_start, patch_idx_end + 1):
         for patch_idy in range(patch_idy_start, patch_idy_end + 1):
             # scan the bounding box for evidence
+            done = False
             for x in range(bbox_top, bbox_bottom + 1):
                 for y in range(bbox_left, bbox_right + 1):
                     if palette[x, y] == index:
                         block_x = x // patch_height
                         block_y = y // patch_width
                         if block_x == patch_idx and block_y == patch_idy:
-                            valid_blocks.add(int(block_x * n_patch + block_y))
+                            block_count += 1
+                            done = True
                             break
+                if done:
+                    break
     
-    return sorted(list(valid_blocks))
+    return block_count
 
 if __name__ == '__main__':
     palette = np.array([
