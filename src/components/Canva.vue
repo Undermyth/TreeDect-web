@@ -92,7 +92,6 @@ const segLayer = ref(null);
 const paletteImage = ref(null);
 const segStore = useSegStore();
 const drawIndex = ref(null);
-const clusterIndexes = ref([]);   // List[n_segments]. each element is the cluster label to the segment, start from 0. -1 for deleted segments
 
 // 添加鼠标位置响应式变量
 const mousePosition = ref({ x: 0, y: 0 });
@@ -253,8 +252,8 @@ watch(
   () => segStore.highlightCluster,
   (newHighlightCluster) => {
     const indexes = [];
-    for (let i = 0; i < clusterIndexes.value.length; i++) {
-      if (clusterIndexes.value[i] == newHighlightCluster) {
+    for (let i = 0; i < segStore.clusterMap.length; i++) {
+      if (segStore.clusterMap[i] == newHighlightCluster) {
         indexes.push(i + 1);
       }
     }
@@ -482,14 +481,30 @@ const handleCluster = async () => {
     console.time('cluster request');
     const response = await axios.post('/cluster', {
       palette: paletteImage.value.palette,
-      k: segStore.k
+      k: segStore.k,
+      seg_ratio: segStore.segRatio
     });
     console.timeEnd('cluster request');
     const clusterMap = response.data.labels; // 修复：正确访问响应数据
+    var countTotal = 0;
+    var blockCountTotal = 0;
+    var areasTotal = 0;
+    for (var i = 0; i < clusterMap.length; i++) {
+      if (clusterMap[i] != -1) {
+        countTotal += 1;
+        blockCountTotal += response.data.block_count[i];
+        areasTotal += response.data.areas[i];
+      }
+    }
+    segStore.countTotal = countTotal;
+    segStore.blockCountTotal = blockCountTotal;
+    segStore.areasTotal = areasTotal;
+    segStore.setClusterMap(clusterMap);
+    segStore.setBlockCounts(response.data.block_count);
+    segStore.setAreas(response.data.areas);
     const canvas = segmentationOverlayConfig.value.image;
     const ctx = canvas.getContext('2d');
     paletteImage.value.cluster(ctx, segLayer, clusterMap);
-    clusterIndexes.value = clusterMap;
     updateIndexArray(indexArray.value, clusterMap, response.data.position_x, response.data.position_y);
     segStore.setColorMap(paletteImage.value.getHexColor());
     segStore.setAreas(response.data.areas);
@@ -572,7 +587,13 @@ const handleSelect = async (key) => {
 }
 
 const handleChangeLabel = () => {
+  // currently cluster labels are maintained in three places:
+  // 1. segStore, for computation of statistics in the logging page
+  // 2. indexArray, for rendering 
+  // 3. paletteImage, for rendering colors of clusters
+  // so every part should be updated. This is totally a bullshit but it works
   const index = paletteImage.value.getIndex(mousePosition.value.x, mousePosition.value.y) - 1;
+  segStore.updateClusterMap(index, newLabel.value);
   updateIndex(indexArray.value, index, newLabel.value);
   const canvas = segmentationOverlayConfig.value.image;
   const ctx = canvas.getContext('2d');

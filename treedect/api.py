@@ -164,6 +164,7 @@ def point_segment(request: PointSegmentRequest):
 class ClusterRequest(BaseModel):
     palette: list
     k: int
+    seg_ratio: int
 
 @app.post("/cluster")
 def cluster(request: ClusterRequest):
@@ -239,17 +240,19 @@ def cluster(request: ClusterRequest):
         labels[int(index)] = cluster_label
     cluster_labels = np.array(labels)
 
-    areas = np.zeros(cluster_labels.max() + 1)
-    for label, area in zip(cluster_labels, dataset.area):
-        if label != -1:
-            areas[label] += area
+    # areas = np.zeros(cluster_labels.max() + 1)
+    # for label, area in zip(cluster_labels, dataset.area):
+    #     if label != -1:
+    #         areas[label] += area
 
     position_x = np.round((dataset.bbox_top + dataset.bbox_bottom) / 2)
     position_y = np.round((dataset.bbox_left + dataset.bbox_right) / 2)
     # 返回聚类结果
     return JSONResponse(content={
         "labels": cluster_labels.tolist(),      # List[n_segments]. each element is the cluster label to the segment, start from 0, -1 for deleted segments
-        "areas": areas.tolist(),                # List[n_clusters]. each element is the area in pixels to the cluster
+        # "areas": areas.tolist(),                # List[n_clusters]. each element is the area in pixels to the cluster
+        "areas": dataset.area,
+        "block_count": dataset.block_count,
         "position_x": position_x.tolist(),
         "position_y": position_y.tolist(),
     })

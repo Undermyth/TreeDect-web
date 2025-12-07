@@ -7,10 +7,10 @@ import cv2
 from utils import create_block_mask_in_bbox
 
 class FeatureExtractionDataset(Dataset):
-    def __init__(self, palette: np.ndarray, image, n_patch, segment_ratio = 4):
+    def __init__(self, palette: np.ndarray, image, n_patch, seg_ratio = 2):
         super().__init__()
         self.palette = palette
-        self.segment_ratio = segment_ratio
+        self.seg_ratio = seg_ratio
         self.height = self.palette.shape[0]
         self.width = self.palette.shape[1]
         self.n_patch = n_patch
@@ -24,11 +24,10 @@ class FeatureExtractionDataset(Dataset):
         self.bottom = [0 for _ in range(self.num_segs)]    # right down corner
 
         self.area = [0 for _ in range(self.num_segs)]
-
         self.valid = [1 for _ in range(self.num_segs)]
-
         self.mean_color = [np.array([0, 0, 0], dtype=np.float32) for _ in range(self.num_segs)]
         self.std_color = [np.array([0, 0, 0], dtype=np.float32) for _ in range(self.num_segs)]
+        self.block_count = [0 for _ in range(self.num_segs)]
 
         self._generate_dataset()
 
@@ -73,6 +72,9 @@ class FeatureExtractionDataset(Dataset):
         self.bbox_right = self.right
         self.bbox_bottom = self.bottom
 
+        for i in range(self.num_segs):
+            self.block_count[i] = len(create_block_mask_in_bbox(self.bbox_top[i], self.bbox_bottom[i], self.bbox_left[i], self.bbox_right[i], self.palette, i + 1, self.seg_ratio))
+
     def _visualization(self):
         vis_image = self.image.copy()
         colors = [(0, 255, 0), (255, 0, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
@@ -93,7 +95,7 @@ class FeatureExtractionDataset(Dataset):
         block_mask = create_block_mask_in_bbox(self.bbox_top[index], self.bbox_bottom[index], self.bbox_left[index], self.bbox_right[index], self.palette, index + 1, self.n_patch)
         return {
             "data": bbox,
-            "block_mask": np.array(block_mask, dtype=np.int32)
+            "block_mask": np.array(block_mask, dtype=np.int32),
         }
 
     def __len__(self):
@@ -103,7 +105,7 @@ class FeatureExtractionDataset(Dataset):
     def collate_fn(batch):
         return {
             "data": [sample["data"] for sample in batch],
-            "block_mask": [sample["block_mask"] for sample in batch]
+            "block_mask": [sample["block_mask"] for sample in batch],
         }
 
 # %%

@@ -8,6 +8,7 @@
       <n-button type="primary" @click="generateSegmentation" :loading="loading">{{ progress }}</n-button>
       <n-switch v-model:value="segStore.showMask" />
       <n-switch v-model:value="segStore.showIndex" />
+      <n-input-number v-model:value="segStore.segRatio" placeholder="分割比例" />
     </n-space>
   </div>
 </template>

@@ -6,9 +6,15 @@ export const useSegStore = defineStore('seg', {
         showMask: true,
         showIndex: true,
         k: 6,
+        segRatio: 2,
         colorMap: null,
+        highlightCluster: -1,
+        clusterMap: [],
         areas: [],
-        highlightCluster: -1
+        blockCounts: [],
+        countTotal: 0,
+        blockCountTotal: 0,
+        areasTotal: 0,
     }),
     actions: {
         setPalette(value) {
@@ -17,11 +23,22 @@ export const useSegStore = defineStore('seg', {
         setColorMap(value) {
             this.colorMap = value
         },
+        setHighlightCluster(value) {
+            this.highlightCluster = value
+        },
+        setClusterMap(value) {
+            this.clusterMap = value
+        },
+        updateClusterMap(index, value) {
+            if (index >= 0 && index < this.clusterMap.length) {
+                this.clusterMap.splice(index, 1, value);
+            }
+        },
         setAreas(value) {
             this.areas = [...value];
         },
-        setHighlightCluster(value) {
-            this.highlightCluster = value
-        }
+        setBlockCounts(value) {
+            this.blockCounts = value
+        },
     }
 })
