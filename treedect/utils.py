@@ -69,7 +69,7 @@ def filter_overlap_segments(
         for j in range(masks.shape[1]):
 
             if is_overlap(segment_mask, masks[i, j], ratio):
-                print(i, j)
+                # print(i, j)
                 segment_mask = segment_mask.astype(bool) | masks[i, j].astype(bool)
                 continue
 

@@ -109,7 +109,7 @@ async def generate_segmentation(request: SegmentationRequest):
             for i in range(point_grid.shape[0]):
                 point_coord = np.expand_dims(point_grid[i, j], axis=0)
                 point_label = np.array([1])
-                current_masks, _, _ = predictor.predict(point_coords=point_coord, point_labels=point_label)
+                current_masks, _, _ = predictor.predict(point_coords=point_coord, point_labels=point_label, multimask_output=True)
                 masks.append(current_masks[0].astype(bool))
     logging.info("prediction complete")
     
@@ -191,6 +191,8 @@ def cluster(request: ClusterRequest):
             valid_patchs = []
             for block_index in block_mask:
                 valid_patchs.append(patch_states[block_index])
+            if len(valid_patchs) == 0:
+                valid_patchs.append(torch.zeros((768,)))   # empty patch
             cls_token = torch.stack(valid_patchs, dim=0).mean(dim=0)
             cls_tokens.append(cls_token.numpy())
     
