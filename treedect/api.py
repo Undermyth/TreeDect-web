@@ -15,6 +15,7 @@ from pydantic import BaseModel
 import logging
 from torch.utils.data import DataLoader
 from sklearn.cluster import KMeans
+from scipy import sparse
 
 from utils import *
 from feature import FeatureExtractionDataset
@@ -22,6 +23,7 @@ import time
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler, normalize
 import umap
+from tqdm import tqdm
 
 # ------------------------------------------------------------
 # global states
@@ -98,23 +100,33 @@ async def generate_segmentation(request: SegmentationRequest):
         return JSONResponse(content={"error": "No image loaded"}, status_code=400)
 
     height, width = img.shape[:2]
+    print('start prefilling, height:', height, 'width:', width)
     point_grid = generation_sample_grid(height, width, row_sample_interval, col_sample_interval)
     with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
         predictor.set_image(img)
-    logging.info("prefilling complete")
+    print("prefilling complete")
 
     masks = []
     with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
+        total_points = point_grid.shape[0] * point_grid.shape[1]
+        processed_points = 0
+        pbar = tqdm(total=total_points, desc="Processing points")
         for j in range(point_grid.shape[1]):
             for i in range(point_grid.shape[0]):
                 point_coord = np.expand_dims(point_grid[i, j], axis=0)
                 point_label = np.array([1])
                 current_masks, _, _ = predictor.predict(point_coords=point_coord, point_labels=point_label, multimask_output=True)
-                masks.append(current_masks[0].astype(bool))
-    logging.info("prediction complete")
+                # Convert to sparse CSR matrix to save memory
+                mask_bool = current_masks[0].astype(bool)
+                mask_sparse = sparse.csr_matrix(mask_bool)
+                masks.append(mask_sparse)
+                processed_points += 1
+                pbar.update(1)
+        pbar.close()
+        print("prediction complete")
     
     filtered_grids, filtered_masks = filter_overlap_segments(point_grid, masks, height, width, overlap_ratio)
-    logging.info("filter complete")
+    print("filter complete")
 
     num_masks = len(filtered_masks)
     

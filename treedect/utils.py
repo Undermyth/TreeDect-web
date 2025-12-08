@@ -2,6 +2,7 @@ import numpy as np
 from sam2.sam2_image_predictor import SAM2ImagePredictor
 from typing import List, Tuple
 import numba
+from scipy import sparse
 
 def generation_sample_grid(height: int, width: int, ROW_SAMPLE_INTERVAL: int, COL_SAMPLE_INTERVAL: int):
     """
@@ -48,45 +49,62 @@ def generation_sample_grid(height: int, width: int, ROW_SAMPLE_INTERVAL: int, CO
 
 def filter_overlap_segments(
     point_grid: List[np.ndarray], 
-    masks: List[np.ndarray], 
+    masks: List[sparse.csr_matrix], 
     height: int,
     width: int,
     ratio: float
-) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+) -> Tuple[List[np.ndarray], List[sparse.csr_matrix]]:
 
     filtered_masks = []
     legal_sample_points = []
-    masks = np.stack(masks, axis=0)
-    masks = masks.reshape(point_grid.shape[1], point_grid.shape[0], height, width)
-    segment_mask = np.zeros((height, width))
+    
+    # Convert masks list to 2D array structure matching point_grid
+    masks_2d = []
+    idx = 0
+    for j in range(point_grid.shape[1]):
+        row_masks = []
+        for i in range(point_grid.shape[0]):
+            row_masks.append(masks[idx])
+            idx += 1
+        masks_2d.append(row_masks)
+    
+    segment_mask = sparse.csr_matrix((height, width), dtype=bool)
 
-    def is_overlap(mask_a: np.ndarray, mask_b: np.ndarray, overlap_ratio: float) -> bool:
-        overlap_mask = mask_a.astype(bool) & mask_b.astype(bool)
-        ratio = overlap_mask.sum() / mask_b.sum()
-        return ratio >= overlap_ratio
+    def is_overlap(mask_a: sparse.csr_matrix, mask_b: sparse.csr_matrix, overlap_ratio: float) -> bool:
+        if mask_b.nnz == 0:  # Handle empty masks
+            return False
+        overlap_mask = mask_a.multiply(mask_b)
+        overlap_count = overlap_mask.nnz
+        ratio_val = overlap_count / mask_b.nnz
+        return ratio_val >= overlap_ratio
 
-    for i in range(masks.shape[0]):
-        for j in range(masks.shape[1]):
-
-            if is_overlap(segment_mask, masks[i, j], ratio):
+    for i in range(len(masks_2d)):
+        for j in range(len(masks_2d[i])):
+            current_mask = masks_2d[i][j]
+            
+            if is_overlap(segment_mask, current_mask, ratio):
                 # print(i, j)
-                segment_mask = segment_mask.astype(bool) | masks[i, j].astype(bool)
+                segment_mask = segment_mask + current_mask
+                segment_mask = segment_mask.astype(bool)  # Ensure boolean
                 continue
 
-            filtered_masks.append(masks[i, j])
+            filtered_masks.append(current_mask)
             legal_sample_points.append(point_grid[j, i])  
-            segment_mask = segment_mask.astype(bool) | masks[i, j].astype(bool)
+            segment_mask = segment_mask + current_mask
+            segment_mask = segment_mask.astype(bool)  # Ensure boolean
     
     return legal_sample_points, filtered_masks
 
-def masks_to_palette(masks: List[np.ndarray], height: int, width: int) -> np.ndarray:
+def masks_to_palette(masks: List[sparse.csr_matrix], height: int, width: int) -> np.ndarray:
 
-    palette = np.zeros((height, width)).astype(np.int32)
+    palette = np.zeros((height, width), dtype=np.int32)
     for i, mask in enumerate(masks, start=1):
+        # Convert sparse mask to dense for the operation
+        mask_dense = mask.toarray().astype(bool)
         # 1. new mask will not overwrite existing masks
         # 2. new mask is presented by idx
         palette_mask = (palette == 0)
-        palette = palette + i * (mask & palette_mask)
+        palette = palette + i * (mask_dense & palette_mask)
     
     return palette.astype(np.int32)
 
