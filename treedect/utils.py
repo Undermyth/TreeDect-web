@@ -84,8 +84,8 @@ def filter_overlap_segments(
             
             if is_overlap(segment_mask, current_mask, ratio):
                 # print(i, j)
-                segment_mask = segment_mask + current_mask
-                segment_mask = segment_mask.astype(bool)  # Ensure boolean
+                # segment_mask = segment_mask + current_mask
+                # segment_mask = segment_mask.astype(bool)  # Ensure boolean
                 continue
 
             filtered_masks.append(current_mask)
